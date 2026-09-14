@@ -53,5 +53,12 @@
   "lint-staged": {
     "*.{ts,tsx}": "eslint --fix",
     "*.{js,jsx,ts,tsx,md,scss}": "prettier --write"
+  },
+  "allowScripts": {
+    "core-js": true,
+    "core-js-pure": true,
+    "esbuild@0.18.20": true,
+    "ffmpeg-ffprobe-static@6.1.1": true,
+    "nx@19.6.2": true
   }
 }
