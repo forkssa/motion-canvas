@@ -1,5 +1,6 @@
 import {TOCItem} from '@docusaurus/mdx-loader';
-import {DocProvider} from '@docusaurus/theme-common/internal';
+import type {PropDocContent} from '@docusaurus/plugin-content-docs';
+import {DocProvider} from '@docusaurus/plugin-content-docs/client';
 import useIsBrowser from '@docusaurus/useIsBrowser';
 import Item from '@site/src/components/Api/Item';
 import Tooltip from '@site/src/components/Tooltip';
@@ -29,10 +30,11 @@ interface ApiItemProps {
   };
 }
 
-export default function ApiItem({route}: ApiItemProps): JSX.Element {
+export default function ApiItem({route}: ApiItemProps): React.JSX.Element {
   const lookup = useApiLookup(route.projectId);
-  const reflection: JSONOutput.DeclarationReflection =
-    lookup[route.reflectionId];
+  const reflection: JSONOutput.DeclarationReflection = lookup[
+    route.reflectionId
+  ] as JSONOutput.DeclarationReflection;
   const [filters] = useFilters();
 
   const isBrowser = useIsBrowser();
@@ -50,7 +52,7 @@ export default function ApiItem({route}: ApiItemProps): JSX.Element {
       });
       if (group.children) {
         for (const id of group.children) {
-          const child = lookup[id];
+          const child = lookup[id] as JSONOutput.DeclarationReflection;
           if (
             !child ||
             child.hasOwnPage ||
@@ -73,26 +75,33 @@ export default function ApiItem({route}: ApiItemProps): JSX.Element {
 
   return (
     <DocProvider
-      content={{
-        frontMatter: {},
-        metadata: {
-          id: reflection.docId,
-          unversionedId: reflection.docId,
-          version: 'current',
-          title: reflection.name,
-          description: reflection.comment?.summaryText,
-          slug: reflection.url,
-          permalink: reflection.url,
-          editUrl: reflection.sources?.[0]?.url ?? undefined,
-          draft: false,
-          tags: [],
+      content={
+        {
           frontMatter: {},
-          next: reflection.next,
-          previous: reflection.previous,
-        },
-        toc,
-        assets: {},
-      }}
+          contentTitle: undefined,
+          metadata: {
+            id: reflection.docId,
+            version: 'current',
+            title: reflection.name,
+            description: reflection.comment?.summaryText,
+            source: '',
+            sourceDirName: '',
+            slug: reflection.url,
+            permalink: reflection.url,
+            editUrl: reflection.sources?.[0]?.url ?? undefined,
+            draft: false,
+            unlisted: false,
+            lastUpdatedAt: null,
+            lastUpdatedBy: null,
+            tags: [],
+            frontMatter: {},
+            next: reflection.next,
+            previous: reflection.previous,
+          },
+          toc,
+          assets: {},
+        } as unknown as PropDocContent
+      }
     >
       <ThemeDictProvider>
         <DocItemMetadata />

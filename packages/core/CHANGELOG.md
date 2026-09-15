@@ -3,6 +3,29 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## Unreleased
+
+### Build System
+
+* restrict `types` to `["node"]` and add `lib: ["ES2022", "DOM", "DOM.Iterable"]`
+
+  The Docusaurus 3.10 upgrade of the docs site introduces `@types/mdx` and
+  React 19-era `@types/react` into the workspace root. Without an explicit
+  `types` list they are auto-included into this package's build, where they
+  fail (duplicate `*.md` module declarations clashing with
+  `@motion-canvas/internal`, and references to the removed global `JSX`
+  namespace). The `lib` addition moves `Array.prototype.at` typing to the
+  standard library so it no longer depends on `@types/node` shipping the
+  legacy `RelativeIndexable` polyfill.
+
+  This is a build-configuration change only — no runtime code was modified
+  and the emitted output is unchanged (`target` stays `es2020`).
+
+* note on API reference tooling: this package's documentation is generated
+  by `typedoc@0.25` (a new root devDependency) through the
+  `packages/docs/typedoc.js` plugin, running against the root TypeScript
+  5.x. The generated `src/generated` data keeps its previous shape.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 

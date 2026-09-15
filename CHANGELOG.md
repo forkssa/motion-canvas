@@ -3,6 +3,151 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## Unreleased
+
+### Bug Fixes
+
+* **docs:** upgrade the documentation site from Docusaurus 2.4.3 to 3.10.2
+
+  The site now runs on the stack shipped by the official
+  `create-docusaurus@3.10.2` template:
+
+  - `@docusaurus/core`, `@docusaurus/preset-classic`,
+    `@docusaurus/theme-classic`, `@docusaurus/theme-mermaid` and
+    `@docusaurus/theme-search-algolia` at `^3.10.2`.
+  - Every plugin referenced by `docusaurus.config.js`
+    (`plugin-content-docs`, `plugin-content-blog`, `plugin-content-pages`,
+    `plugin-debug`, `plugin-sitemap`, `plugin-svgr`) is now a direct
+    dependency instead of relying on transitive hoisting.
+  - React `^19` with `@types/react` / `@types/react-dom` `^19`, `@mdx-js/react`
+    `^3`, `prism-react-renderer` `^2.4` (custom syntax theme unchanged).
+  - Mermaid 11 is bundled with `@docusaurus/theme-mermaid` itself, so no
+    manual mermaid dependency is required.
+  - `engines.node` bumped from `>=16.14` to `>=20` (the minimum for
+    Docusaurus 3.10).
+
+* **docs:** keep exactly one copy of React 19 across the workspace
+
+  Root `package.json` gained `overrides` pinning `react`, `react-dom`,
+  `@types/react` and `@types/react-dom` to `^19`. Without them npm installs
+  a stale React 17 copy at the workspace root (via transitive peers) next to
+  the docs' React 19, which produces undefined JSX/ReactNode type errors
+  and duplicated React instances at build time.
+
+* **docs:** migrate the site config and components to the v3 APIs
+
+  - `onBrokenMarkdownLinks` moved to `markdown.hooks.onBrokenMarkdownLinks`
+    (the old location is deprecated and warns on every build).
+  - `admonitions.tag` removed from the docs plugin options: Docusaurus 3
+    only supports the `:::` Markdown directive tag. The custom
+    `experimental` admonition keyword is kept.
+  - `ApiPage` was recomposed for the v3 route tree: `Layout` +
+    `DocVersionRoot` (with a synthetic version metadata and sidebar) +
+    a synthesized `DocRoot` route replace v2's monolithic `DocPage`. The
+    API pages keep their sidebar, layout and navigation behavior.
+  - `DocProvider` is now imported from
+    `@docusaurus/plugin-content-docs/client` (it moved out of
+    `@docusaurus/theme-common/internal` in v3) and the surrounding fake
+    metadata satisfies the v3 `DocMetadata` / `PropDocContent` shapes
+    (`unversionedId` removed; `source`, `sourceDirName`, `unlisted`,
+    `lastUpdatedAt`, `lastUpdatedBy`, `contentTitle` added).
+  - The swizzled `Details` component matches `<summary>` by
+    `item.type` instead of the removed MDX v1 `mdxType` prop.
+  - `FiddleCodeBlock` parses the code fence `metastring` itself
+    (`editor`, `mode=`, `ratio=`): MDX v3's compatibility layer restores
+    `metastring` and `live` but no longer copies arbitrary meta props onto
+    the `<code>` element, and MDX v1's `originalType` is gone. Non-editor
+    fences keep flowing through `CodeBlock` unchanged.
+  - The `<motion-canvas-player>` custom element is declared through a
+    `react` module augmentation, because React 19 types no longer ship a
+    global `JSX` namespace to augment.
+  - SVG assets imported from `@site/static` render as React components
+    again via `@docusaurus/plugin-svgr`; under React 19 SSR the previous
+    URL-as-tag behavior throws `Invalid tag`.
+  - React 19 idioms applied across site components: `React.JSX.Element`
+    instead of the removed global `JSX.Element`, required initial values
+    for `useRef`, typed web-component props including `class`.
+  - The generated `api.json` / `sidebar.json` are imported with an explicit
+    `.json` extension (required by the docs `tsconfig`'s bundler module
+    resolution) and shared through typed exports (`apiData`, `apiSidebar`)
+    in `src/contexts/api`.
+
+* **docs:** migrate the typedoc pipeline from 0.23 to 0.25
+
+  - `typedoc@^0.25.13` is now a **root** devDependency: it introspects the
+    `core` and `2d` sources like other monorepo build tooling, and 0.25 is
+    the last release line that still provides the serializer API the
+    custom docusaurus plugin is built on. Installing it at the root also
+    guarantees it resolves the root TypeScript 5.x — running it against a
+    newer TypeScript (the docs workspace carries a nested `typescript@~6`
+    for its `typecheck` script) breaks during conversion.
+  - The plugin uses the 0.25 APIs: `Application.bootstrap(options,
+    [readers])` (explicit readers prevent typedoc from auto-discovering
+    `packages/docs/typedoc.js` as a config file), `await app.convert()`
+    (now asynchronous) and `projectToObject(project, projectRoot)`.
+  - The five custom serializers received distinct priorities (-10 … -50).
+    typedoc 0.25 orders equal-priority serializers in reverse insertion
+    order, which silently dropped `project`, `experimental` and
+    `importPath` from every entry of the generated lookups (19,505
+    entries) and broke all API pages at static rendering time.
+  - The docs' `ReflectionKind` enum copy was renumbered to match typedoc
+    0.24+: `ObjectLiteral` was removed and `TypeAlias` / `Reference`
+    shifted down one bit; both dispatch switches drop the dead case.
+  - New serialized shapes are handled: `unknown` and `templateLiteral`
+    type discriminators render (0.24 renamed `template-literal`);
+    `named-tuple-member` no longer exists and its case was removed;
+    `ReferenceType` targets are resolved through `target` (0.24+) with a
+    fallback to the legacy `id` key.
+  - The generated `src/generated/api.json`, `sidebar.json` and markdown
+    fragments keep their previous shape (entry counts, `{id, project}`
+    references and anchors), so the renderers downstream are unaffected.
+
+* **docs:** fix broken links and anchors surfaced by the v3 checkers
+
+  - `/docs/Latex` → `/docs/latex` (the v3 broken-link checker is
+    case-sensitive on slugs).
+  - `Vector2#topLeft` / `#polarLerp` / `#arcLerp` → the `#static-*`
+    anchors the API generator actually emits.
+  - `Matrix2D#PossibleMatrix2D` → `/api/core/types#PossibleMatrix2D`
+    (the type lives on the module page, not the class page).
+  - `CodeSignalContext#selection` → `/api/2d/components/Code#selection`
+    (the member belongs to `Code`, and the old anchor never rendered).
+  - `Node#getCacheBBox` → `Node#cacheBBox`; the dead `fullCacheBBox`
+    anchor and the long-removed `/docs/rendering#group-by-scene`
+    section were unlinked.
+  - Remaining anchor warnings point at API page TOC entries for members
+    that have never rendered page anchors (a pre-existing
+    TOC-versus-content behavior gap that v2 did not check).
+
+### Build System
+
+* pin tooling used by every workspace at the root
+  - `rollup@^3` added as a root devDependency: `packages/core` and
+    `packages/2d` run it for `bundle` / `build-editor`, but its binary was
+    previously only reachable as a transitive dependency of `vite`, which
+    npm does not link.
+  - `typedoc@^0.25.13` added as a root devDependency (see above).
+* refresh `package-lock.json` surgically: the previous lockfile was
+  restored and only the Docusaurus / React subtrees were re-resolved, so
+  unrelated packages (`@preact/signals`, `@types/node@18.x`,
+  `typescript@5.4`, `@types/fluent-ffmpeg`, …) keep their previous
+  resolutions and `ui` / `ffmpeg` builds stay unaffected.
+* **core:** make the build robust against workspace-level `@types`
+  leakage and `@types/node` drift
+  - `types` is restricted to `["node"]`: the Docusaurus 3 tree hoists
+    `@types/mdx` (and a newer `@types/react`) into the workspace root, and
+    without an explicit list they are auto-included into the library
+    build, conflicting with `internal`'s `*.md` declarations and failing
+    under React 19 types.
+  - `lib` now includes `ES2022` / `DOM` / `DOM.Iterable` so
+    `Array.prototype.at` typing comes from the standard library instead of
+    `@types/node`'s legacy `RelativeIndexable` polyfill. Emit is unchanged
+    (`target` stays `es2020`).
+* **2d:** `src/tsconfig.base.json` gains the same `lib` addition for the
+  same `Array.prototype.at` reason (typing-only; `target` and output
+  unchanged).
+* **examples:** `types` restricted to `["node"]`, matching `template`.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 

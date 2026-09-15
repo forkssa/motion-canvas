@@ -14,6 +14,12 @@ Monorepo: npm workspaces (`packages/*`) + Lerna. Run all commands from this dir
 - Docs build requires both:
   `npx lerna run build && npx lerna run bundle && npm run docs:build` with
   `NODE_OPTIONS=--max-old-space-size=8192`.
+- Docs toolchain: Docusaurus 3.10.2 + React 19. React copies are pinned
+  repo-wide via root `package.json` `overrides` — don't remove them. `typedoc`
+  (0.25.x) and `rollup` are root devDeps on purpose: typedoc must resolve the
+  root TypeScript 5.x (running it against a newer TS breaks it). The docs
+  workspace keeps a nested `typescript@~6.0.2` used by its `typecheck` script
+  only.
 
 ## Package boundaries
 
@@ -24,13 +30,17 @@ Monorepo: npm workspaces (`packages/*`) + Lerna. Run all commands from this dir
   (`rollup -c rollup.editor.mjs`). Unit tests cover only `src/lib/**/*.test.*`.
 - `ui`: editor shell (Preact + `@preact/signals`, Vite). `build` =
   `tsc && vite build`; `type` = `tsc -w`.
-- `vite-plugin`: plain `tsc` build, peer `vite 4.x || 5.x`.
+- `vite-plugin`: plain `tsc` build, peer `vite 4.x || 5.x`. Its `skipLibCheck`
+  is not accidental — keep it.
 - `ffmpeg`: dual `client/tsconfig.json` + `server/tsconfig.json` builds; license
   GPLv3 (others MIT).
 - `player`: Vite web-component consumer of built packages.
 - `internal`: private build helpers only — includes `vite/markdown-literals`
   plugin required by `core`/`2d` vitest configs.
-- `e2e` / `examples` / `template` / `docs`: private, not published.
+- `docs`: private, not published. Docusaurus 3.10.2 site (React 19, MDX v3,
+  `plugin-svgr`); the `typedoc.js` plugin regenerates `src/generated` during
+  production builds.
+- `e2e` / `examples` / `template`: private, not published.
 
 ## Verify (mirrors `verify.yml`)
 
@@ -45,7 +55,10 @@ Monorepo: npm workspaces (`packages/*`) + Lerna. Run all commands from this dir
   `jest-image-snapshot`; spins up Vite server itself). Failure diffs:
   `packages/e2e/src/__image_snapshots__/__diff_output__`. In containers set
   `HOME=/root` (see `verify.yml`).
-- UI types: `npm run ui:type`. Docs: `npm run docs:build` (expensive).
+- UI types: `npm run ui:type`.
+- Docs types: `npm run typecheck -w packages/docs` (docs-nested TS ~6.0.2).
+- Docs build: `npm run docs:build` (expensive; needs a prior
+  `npx lerna run build && npx lerna run bundle`).
 
 ## Conventions
 
@@ -62,3 +75,7 @@ Monorepo: npm workspaces (`packages/*`) + Lerna. Run all commands from this dir
   `packages/create/template-*`.
 - Never edit generated output: `packages/*/lib|dist|build`,
   `packages/2d/editor`, `packages/docs/src/generated`.
+- `core`/`2d` manifests pin `types: ["node"]` and `lib` includes ES2022: hoisted
+  `@types/*` packages from the docs workspace (e.g. `@types/mdx`) must not leak
+  into library builds, and `Array.prototype.at` typing comes from `lib`, not
+  from `@types/node` polyfills.

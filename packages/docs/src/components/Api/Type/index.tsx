@@ -1,3 +1,4 @@
+import Token from '@site/src/components/Api/Code/Token';
 import ArrayType from '@site/src/components/Api/Type/ArrayType';
 import ConditionalType from '@site/src/components/Api/Type/ConditionalType';
 import IndexedAccessType from '@site/src/components/Api/Type/IndexedAccessType';
@@ -6,7 +7,6 @@ import IntersectionType from '@site/src/components/Api/Type/IntersectionType';
 import IntrinsicType from '@site/src/components/Api/Type/IntrinsicType';
 import LiteralType from '@site/src/components/Api/Type/LiteralType';
 import MappedType from '@site/src/components/Api/Type/MappedType';
-import NamedTupleMemberType from '@site/src/components/Api/Type/NamedTupleMemberType';
 import PredicateType from '@site/src/components/Api/Type/PredicateType';
 import QueryType from '@site/src/components/Api/Type/QueryType';
 import ReferenceType from '@site/src/components/Api/Type/ReferenceType';
@@ -22,6 +22,10 @@ export interface CodeTypeProps {
   type: JSONOutput.SomeType;
 }
 
+function UnknownType() {
+  return <Token type="keyword">unknown</Token>;
+}
+
 export default function CodeType(props: CodeTypeProps) {
   const TypeComponent = useMemo(() => {
     switch (props.type.type) {
@@ -35,8 +39,6 @@ export default function CodeType(props: CodeTypeProps) {
         return ReflectionType;
       case 'query':
         return QueryType;
-      case 'named-tuple-member':
-        return NamedTupleMemberType;
       case 'optional':
         break;
       case 'union':
@@ -46,7 +48,7 @@ export default function CodeType(props: CodeTypeProps) {
       case 'literal':
         return LiteralType;
       case 'unknown':
-        break;
+        return UnknownType;
       case 'reference':
         return ReferenceType;
       case 'predicate':
@@ -61,7 +63,7 @@ export default function CodeType(props: CodeTypeProps) {
         return InferredType;
       case 'mapped':
         return MappedType;
-      case 'template-literal':
+      case 'templateLiteral':
         return TemplateLiteralType;
       case 'indexedAccess':
         return IndexedAccessType;
