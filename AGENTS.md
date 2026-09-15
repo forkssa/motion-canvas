@@ -34,7 +34,14 @@ pin and the root `engines` floor (`>=24.20.0`).
   `@lezer/common@^1.5.0`, `@lezer/highlight@^1.2.3`); the docs fiddle uses
   `@codemirror/lang-javascript@^6.2.5` over `@lezer/javascript@^1.5.4`.
 - `ui`: editor shell (Preact + `@preact/signals`, Vite). `build` =
-  `tsc && vite build`; `type` = `tsc -w`.
+  `tsc && vite build`; `type` = `tsc -w`. `@preact/signals` 2.x peers on
+  `preact >= 10.25.0` — bump preact alongside it (currently `^10.29.8`). preact
+  ≥10.22 ships React-style JSX types: element-specific attribute bases
+  (`AnchorHTMLAttributes`, `InputHTMLAttributes`, …) are imported from `preact`
+  (not `JSX.HTMLAttributes`), and `Ref`/`RefObject` live in `preact` — `Ref` is
+  the `RefObject | RefCallback | null` union, so ref objects accessed via
+  `.current` should be typed `RefObject<T>`; JSX spreads (but not literal attrs)
+  tolerate the extra `div`-level `disabled` forwarded by `AudioClip`.
 - `vite-plugin`: plain `tsc` build, peer `vite 4.x || 5.x`. Its `skipLibCheck`
   is not accidental — keep it.
 - `ffmpeg`: dual `client/tsconfig.json` + `server/tsconfig.json` builds; license
@@ -59,13 +66,17 @@ pin and the root `engines` floor (`>=24.20.0`).
   `npm run core:test`, `npm run 2d:test`.
 - Single test: `npx vitest run <path>` from `packages/core` or `packages/2d`
   (jsdom env; `core` uses `vitest.setup.ts`).
-- E2E: `npm run e2e:test` (Playwright **Firefox** headless +
-  `jest-image-snapshot@^6.5.2`; spins up Vite server itself). Failure diffs:
+- E2E: `npm run e2e:test -- run` (non-interactive; plain `npm run e2e:test`
+  drops into vitest watch mode on a TTY) — Playwright **Firefox** headless +
+  `jest-image-snapshot@^6.5.2`; spins up Vite server itself. Failure diffs:
   `packages/e2e/src/__image_snapshots__/__diff_output__`. In containers set
-  `HOME=/root` (see `verify.yml`). The matcher is consumed only by
-  `packages/e2e`; 6.5.2 drops the `rimraf` runtime dep (uses native `fs.rmSync`)
-  and adds `runtimeHooksPath` / `maxChildProcessBufferSizeInBytes` plus base64 /
-  TypedArray input support.
+  `HOME=/root` (see `verify.yml`). `playwright@^1.63.0` pins its own browser
+  builds (`firefox-1543` / `ffmpeg-1011`): run `npx playwright install firefox`
+  after any playwright upgrade, and keep `verify.yml`'s e2e container image
+  (`mcr.microsoft.com/playwright:v1.63.0-jammy`) in lockstep with the npm
+  version. The matcher is consumed only by `packages/e2e`; 6.5.2 drops the
+  `rimraf` runtime dep (uses native `fs.rmSync`) and adds `runtimeHooksPath` /
+  `maxChildProcessBufferSizeInBytes` plus base64 / TypedArray input support.
 - UI types: `npm run ui:type`.
 - Docs types: `npm run typecheck -w packages/docs` (docs-nested TS ~6.0.2).
 - Docs build: `npm run docs:build` (expensive; needs a prior

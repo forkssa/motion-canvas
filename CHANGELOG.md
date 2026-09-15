@@ -295,13 +295,149 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   eslint-clean.
 * upgrade `@lezer/javascript` from 1.4.13 to 1.5.4
 
-  Minor bump of the direct `packages/docs` dependency (consumed via
-  the generated `parser` export in `Fiddle/SharedPlayer.ts`); no API
+  Minor bump of the direct `packages/docs` dependency (consumed via the
+  generated `parser` export in `Fiddle/SharedPlayer.ts`); no API
   changes affecting the repo. Its floors (`@lezer/lr ^1.3.0`,
   `@lezer/common ^1.2.0`, `@lezer/highlight ^1.1.3`) are already met
   by the hoisted copies, so the lock change is a single in-place
   version bump shared with `lang-javascript`. Verified: `npm ls --all`
   exits 0, docs `typecheck` passes, consumer file eslint-clean.
+* **e2e:** upgrade `playwright` from 1.46.1 to 1.63.0
+
+  The browser automation driver of the visual-regression suite moves
+  from `^1.46.1` to `^1.63.0` (`packages/e2e/package.json`; it is a
+  runtime dependency of the private e2e workspace only — no published
+  package depends on it). `packages/e2e/src/app.ts` consumes exactly
+  four exports (`firefox.launch({headless: true})`, `browser.newPage()`,
+  `page.goto()`, `page.waitForSelector()` plus the `Page` type), all
+  long-stable APIs whose signatures are unchanged across the entire
+  1.46 → 1.63 range, so no source change was required.
+
+  - Lock changes: `playwright` and `playwright-core` re-resolve from
+    `1.46.1` to `1.63.0` in both lock sections (`node_modules/*` plus
+    the `packages/e2e` workspace references). 1.46.1 carried a pinned
+    optional `fsevents@2.3.2` (macOS-only file watcher); 1.63.0 drops
+    that pin entirely, so the entry disappears from the tree on all
+    platforms. `vitest@0.34.6`'s optional `playwright` peer dedupes
+    against the single hoisted 1.63.0 (`npm ls playwright` shows one
+    copy shared by `packages/e2e` and vitest). No other packages
+    required a compatibility bump (`jest-image-snapshot@^6.5.2` and
+    `vitest@^0.34.6` are version-agnostic with respect to playwright).
+  - Engine floor: playwright 1.63.0 requires `node >=20`; the repo's
+    root `engines` floor (`>=24.20.0`) and CI pin (24.20.0) satisfy it.
+  - Browser binaries: each playwright release pins its own browser
+    builds — 1.63.0 expects `firefox-1543` and `ffmpeg-1011` (1.46.1
+    shipped `firefox-1458` / `ffmpeg-1009`), so local caches need
+    `npx playwright install firefox` after upgrading; running new
+    npm packages against old cached browsers fails with
+    "Executable doesn't exist" errors.
+  - CI: the `verify.yml` e2e job container image is bumped in
+    lockstep from `mcr.microsoft.com/playwright:v1.46.1-jammy` to
+    `v1.63.0-jammy` — the image must match the npm package version,
+    otherwise the browsers bundled in the container don't match what
+    the package driver expects.
+  - Install notes: performed via the repo's uninstall-first practice
+    (`npm uninstall playwright -w packages/e2e` then
+    `npm add playwright@latest -w packages/e2e`) since the version
+    jump spans 17 minor releases; `npm dedupe` afterwards collapsed
+    the vitest-peered copy back into the single hoisted 1.63.0.
+  - Verification: `npx eslint "packages/e2e/**/*.ts"` passes; the
+    pre-existing `packages/e2e` tsc noise (`@types/mdx` / vite hoisting
+    leaks, not exercised by CI) is unchanged and unrelated to
+    playwright; `npm run e2e:test -- run` passes (1 file, 1 test,
+    Playwright Firefox headless against the vite dev server,
+    `jest-image-snapshot` diff clean) after a full
+    `npx lerna run build`.
+* **ui:** upgrade `@preact/signals` from 1.2.1 to 2.11.2 (with `preact` 10.19.2 → 10.29.8)
+
+  The reactive state library of the editor shell moves from `^1.2.1`
+  to `^2.11.2` in `packages/ui` (dependency) and `packages/2d`
+  (devDependency; used by the tree view and inspection panels).
+  `@preact/signals` 2.x declares a peer floor of
+  `preact >= 10.25.0 || >=11.0.0-0`, so `preact` moves from `^10.19.2`
+  to `^10.29.8` (latest of the 10.x line; 11.x is still beta/rc) in
+  both packages — a required companion bump, not a discretionary one.
+  No other package needed updating: `@preact/preset-vite@2.7.0` and
+  its `@prefresh/core@1.5.2` peer (`preact ^10.0.0`) already accept
+  10.29.8, and nothing else in the workspace depends on preact.
+
+  - Lock changes: `@preact/signals` re-resolves 1.2.1 → 2.11.2 and
+    brings `@preact/signals-core` 1.5.0 → 1.14.4 (its only runtime
+    dependency, hoisted once); `preact` re-resolves 10.19.2 → 10.29.8
+    in both workspace references and stays deduped against the copy
+    `@prefresh/core` peers on. `npm dedupe` left a single hoisted copy
+    of each of the three packages (`npm ls` clean, no `invalid`
+    markers).
+
+  - API surface: the repo consumes exactly eight exports
+    (`signal`, `computed`, `Signal`, `ReadonlySignal`, `useSignal`,
+    `useComputed`, `useSignalEffect` — all re-exports of
+    `@preact/signals-core` or stable hook bindings) and every one of
+    them kept its signature across the 1.x → 2.x rewrite, so no source
+    change was needed for signals itself.
+
+  - The real breakage was preact's, not signals': 10.29.x ships the
+    rewritten (React-style) JSX types. `JSX.HTMLAttributes<E>` no
+    longer carries element-specific attributes (they moved to
+    `preact`-exported `AnchorHTMLAttributes`, `ButtonHTMLAttributes`,
+    `InputHTMLAttributes`, `CanvasHTMLAttributes`, …), `Ref` is no
+    longer exported from `preact/hooks` (import it from `preact`),
+    and `preact.Ref<T>` is now the React-style union
+    (`RefObject<T> | RefCallback<T> | null`) rather than the old
+    object-only `{current: T | null}` — for ref objects the correct
+    type is the exported `RefObject<T>`. Thirteen files were adapted:
+    - `Input.tsx`, `Checkbox.tsx`, `NumberInput.tsx` (`ui`): prop
+      bases moved to `InputHTMLAttributes<HTMLInputElement>` — this
+      also fixes the `value`/`placeholder`/`readOnly`/`min`/`max`
+      errors at every `<Input>` consumer (ColorInput,
+      PlaybackControls, StringMetaFieldView, BoolMetaFieldView,
+      RangeMetaFieldView).
+    - `Button.tsx` (`ui`): `ButtonHTMLAttributes<HTMLButtonElement>`
+      (restores `disabled`, `type`, form attributes).
+    - `Tabs.tsx` (`ui`): `TabLinkProps` extends
+      `AnchorHTMLAttributes<HTMLAnchorElement>` (restores `href` /
+      `target`).
+    - `OverlayCanvas.tsx` (`ui`): `CanvasHTMLAttributes` (restores
+      `width` / `height` at EditorPreview and PresentationMode).
+    - `AudioTrack.tsx` (`ui`): `AudioClipProps` extends plain
+      `HTMLAttributes<HTMLDivElement>` plus an explicit
+      `disabled?: boolean` — `disabled` is not a legal `div` attribute
+      under the new types, but JSX *spreads* (unlike literal
+      attributes) are not excess-checked, so the inert attribute is
+      still forwarded to the DOM exactly as before (no CSS or code in
+      the repo selects it; behavior byte-identical).
+    - `Pane.tsx`, `shortcuts.tsx` (`ui`) and `TreeElement.tsx`
+      (`2d`): `Ref` import moved from `preact/hooks` to `preact`.
+    - `shortcuts.tsx` context value: `Ref<ConfigMap>` /
+      `Ref<CallbackMap>` → `RefObject<…>` — these fields are
+      `useRef()` objects consumed via `.current`, which the new
+      `Ref` union doesn't guarantee.
+    - `AutoField.tsx` (`ui`): `TYPE_MAP` retyped from
+      `Record<symbol, FunctionComponent<{value: any}>>` to
+      `Record<symbol, (props: AutoFieldProps) => JSX.Element>` —
+      `FunctionComponent`'s return type widened to `ComponentChildren`
+      and no longer unifies with the plain field components (e.g.
+      `UnknownField`) when assigned to the same `Field` variable.
+
+  - Install notes: performed via the repo's uninstall-first practice
+    for both packages and both workspaces
+    (`npm uninstall @preact/signals -w packages/ui -w packages/2d`,
+    same for `preact`, then
+    `npm install @preact/signals@^2.11.2 preact@^10.29.8 …`),
+    followed by `npm dedupe`.
+
+  - Verification: `npx lerna run build` passes (6 projects, includes
+    `ui`'s `tsc && vite build` and `2d`'s split lib/editor builds);
+    `tspc --noEmit -p src/editor/tsconfig.build.json` passes clean in
+    `packages/2d`; unit suites pass under `CI=true npx lerna run test`
+    (core + 2d, 54 tests in 2d); `npx eslint "**/*.ts?(x)"` passes
+    repo-wide and prettier is clean for every file touched by this
+    change (the repo-wide `prettier --check` warnings are all
+    pre-existing `packages/docs` React files, untouched and unrelated);
+    `npm run e2e:test -- run` passes
+    (Playwright Firefox headless, `jest-image-snapshot` diff clean)
+    after a full build.
+
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
