@@ -52,9 +52,12 @@ Monorepo: npm workspaces (`packages/*`) + Lerna. Run all commands from this dir
 - Single test: `npx vitest run <path>` from `packages/core` or `packages/2d`
   (jsdom env; `core` uses `vitest.setup.ts`).
 - E2E: `npm run e2e:test` (Playwright **Firefox** headless +
-  `jest-image-snapshot`; spins up Vite server itself). Failure diffs:
+  `jest-image-snapshot@^6.5.2`; spins up Vite server itself). Failure diffs:
   `packages/e2e/src/__image_snapshots__/__diff_output__`. In containers set
-  `HOME=/root` (see `verify.yml`).
+  `HOME=/root` (see `verify.yml`). The matcher is consumed only by
+  `packages/e2e`; 6.5.2 drops the `rimraf` runtime dep (uses native `fs.rmSync`)
+  and adds `runtimeHooksPath` / `maxChildProcessBufferSizeInBytes` plus base64 /
+  TypedArray input support.
 - UI types: `npm run ui:type`.
 - Docs types: `npm run typecheck -w packages/docs` (docs-nested TS ~6.0.2).
 - Docs build: `npm run docs:build` (expensive; needs a prior

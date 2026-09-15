@@ -147,6 +147,42 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   same `Array.prototype.at` reason (typing-only; `target` and output
   unchanged).
 * **examples:** `types` restricted to `["node"]`, matching `template`.
+* **e2e:** upgrade `jest-image-snapshot` from 6.2.0 to 6.5.2
+
+  The visual-regression matcher used only by `packages/e2e`
+  (`src/rendering.test.ts` via `expect.extend({toMatchImageSnapshot})`)
+  moves from `^6.2.0` to `^6.5.2` (`packages/e2e/package.json`);
+  `package-lock.json` re-resolves all three lock sections
+  (`node_modules/jest-image-snapshot`, `packages/e2e`, legacy `dependencies`
+  block) to `6.5.2`
+  (`sha512-frenWThr5ddnnokcX5N4gwi41hA5TiUOdhv/JoGcJrOaktHjrk4/7XbiHKW52lgKX+vei6QkRlgM7fkYQ15nPg==`):
+
+  - Upstream deltas absorbed: `6.3.0` adds the optional
+    `runtimeHooksPath` hook (`onBeforeWriteToDisc`); `6.4.0` adds the
+    optional `maxChildProcessBufferSizeInBytes` (defaults to 10 MB,
+    previously hardcoded); `6.5.0` accepts `TypedArray` / `Array` /
+    `ArrayBuffer` inputs via a new `toBuffer()` helper; `6.5.1` extends
+    that helper to base64 `string` inputs; `6.5.2` is readme-only.
+    All new options default to previous behavior, so the existing
+    `customSnapshotIdentifier` call needs no code change.
+  - Runtime dep removed: `rimraf@^2.6.2` (and its nested `rimraf@2.7.1` +
+    `glob@7` subtree) is gone; `diff-snapshot.js` now uses native
+    `fs.rmSync(path, {recursive: true, force: true})`, available on every
+    supported engine (`^14.15.0 || ^16.10.0 || >=18.0.0`, CI runs Node 20).
+    No repo code imports `rimraf` directly.
+  - Peer range widened: `jest >=20 <=29` → `>=20 <31` (still optional);
+    the e2e suite runs under `vitest@^0.34.6`, whose `expect.extend` path
+    and `snapshotState` (`_counters`, `_updateSnapshot`) usage are
+    unchanged. The `global.d.ts` `any` shim for
+    `'jest-image-snapshot'` stays valid — the package still ships CJS
+    (`main: src/index.js`) with the same three exports.
+  - Verification: `npm ls jest-image-snapshot` resolves `6.5.2` cleanly;
+    `eslint packages/e2e` passes; `tsc -p packages/e2e` shows only the
+    pre-existing `playwright` / `@types/mdx` errors (byte-identical before
+    and after); a temporary vitest smoke test matched `circle.png` from
+    `Buffer`, base64 `string`, and `Uint8Array` inputs (4/4 passed, file
+    removed afterwards). Full `npm run e2e:test` still requires the
+    Playwright Firefox container with `HOME=/root` (see `AGENTS.md`).
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
