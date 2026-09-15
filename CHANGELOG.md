@@ -257,6 +257,30 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
     `Buffer`, base64 `string`, and `Uint8Array` inputs (4/4 passed, file
     removed afterwards). Full `npm run e2e:test` still requires the
     Playwright Firefox container with `HOME=/root` (see `AGENTS.md`).
+* upgrade CodeMirror editor dependencies
+
+  `@codemirror/language` moves from `^6.10.1` to `^6.12.4`
+  (`packages/2d`, used by the code editor's `LezerHighlighter` /
+  `DefaultHighlightStyle` via the stable `HighlightStyle` API) and
+  `@codemirror/lang-javascript` moves from `^6.1.4` to `^6.2.5`
+  (`packages/docs`, used by the fiddle editor via `javascript()` /
+  `javascriptLanguage`). Both changelogs list bug fixes only plus one
+  additive option each (`mergeTokens` for stream parsers,
+  `typescriptSnippets` completions) — no breaking changes in the 6.x
+  line. 6.12.4 raises the `@lezer/common` floor from `^1.1.0` to
+  `^1.5.0`, so the shared hoisted copy moves from 1.2.1 to 1.5.2 (all
+  other lezer ranges are open `^1.x`).
+
+  Install note: the language bump initially left a nested 6.12.4 under
+  `packages/2d` next to the hoisted 6.10.1 kept for the docs chain
+  (valid but duplicated); `npm dedupe` collapsed everything to a
+  single top-level 6.12.4 shared by both workspaces, also re-homing
+  `camelcase@6.3.0` / `is-plain-obj@4.1.0` to top level. Precise lock
+  diff confirms the only true version bumps are the three named
+  packages. Verified: `npm ls --all` exits 0 with no `invalid`
+  markers, `tspc --noEmit` passes for the `2d` lib, the `2d` unit
+  suite passes (10 files, 54 tests), docs `typecheck` passes, and the
+  fiddle sources are eslint-clean.
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 

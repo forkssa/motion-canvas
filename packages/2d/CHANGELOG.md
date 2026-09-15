@@ -21,6 +21,15 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   `packages/docs/typedoc.js` plugin. The generated `src/generated` data
   keeps its previous shape for this package's pages.
 
+* upgrade `@codemirror/language` from `^6.10.1` to `^6.12.4`
+
+  The code editor (`src/lib/code/LezerHighlighter.ts`,
+  `src/lib/code/DefaultHighlightStyle.ts`) consumes only the stable
+  `HighlightStyle` API. Upstream lists bug fixes only plus an additive
+  stream-parser option, so no code changes were needed. The bump raises
+  the shared `@lezer/common` floor to `^1.5.0` (hoisted copy now
+  1.5.2). Verified with the lib typecheck (`tspc`) and the unit suite.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 **Note:** Version bump only for package @motion-canvas/2d

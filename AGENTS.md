@@ -30,6 +30,9 @@ pin and the root `engines` floor (`>=24.20.0`).
 - `2d`: renderer + editor panels. Split build: `build-lib`
   (`tspc -p src/lib/tsconfig.build.json`) + `build-editor`
   (`rollup -c rollup.editor.mjs`). Unit tests cover only `src/lib/**/*.test.*`.
+  The code editor runs CodeMirror (`@codemirror/language@^6.12.4`, shared
+  `@lezer/common@^1.5.0`); the docs fiddle uses
+  `@codemirror/lang-javascript@^6.2.5`.
 - `ui`: editor shell (Preact + `@preact/signals`, Vite). `build` =
   `tsc && vite build`; `type` = `tsc -w`.
 - `vite-plugin`: plain `tsc` build, peer `vite 4.x || 5.x`. Its `skipLibCheck`

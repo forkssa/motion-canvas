@@ -37,7 +37,7 @@
     "vitest": "^0.34.6"
   },
   "dependencies": {
-    "@codemirror/language": "^6.10.1",
+    "@codemirror/language": "^6.12.4",
     "@lezer/common": "^1.2.1",
     "@lezer/highlight": "^1.2.0",
     "@motion-canvas/core": "^3.17.2",
