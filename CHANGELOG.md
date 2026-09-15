@@ -1300,6 +1300,48 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
   transformation, so builds, unit tests and e2e results are
   unaffected. `npm ls prettier` resolves a single 3.9.6 copy shared
   with `prettier-plugin-organize-imports@4.0.0`.
+* upgrade jsdom from 22.1.0 to 30.0.1
+
+  `jsdom` is the vitest test-environment for the `core` and `2d`
+  workspaces (declared as a devDependency in
+  `packages/core/package.json` and `packages/2d/package.json`,
+  selected via `environment: 'jsdom'` in both `vitest.config.ts`
+  files; `core` additionally wires a `vitest.setup.ts`). Both
+  manifests move from `^22.1.0` to `^30.0.1`, and
+  `package-lock.json` re-resolves jsdom itself to `30.0.1`
+  (`packages/core` and `packages/2d` each share the hoisted copy).
+
+  Upgrade procedure followed the repo's uninstall-first practice:
+  `npm uninstall jsdom -w packages/core -w packages/2d` followed by
+  `npm add -D jsdom@latest -w packages/core -w packages/2d`
+  (jsdom@latest on the registry was 30.0.1) and `npm dedupe`
+  (3 packages repositioned). No companion bumps were required:
+  `vitest@^0.34.6` predates jsdom's peer-style env expectations and
+  instantiates the environment programmatically, so the major jump
+  between 22 and 30 hits nothing at the vitest seams. jsdom 30's
+  dependency list was almost entirely rewritten upstream (CSS
+  selector/color work now in `@asamuzakjp/*` packages, snapshot
+  serialization via `@exodus/bytes`, `undici@^8.9.0` fetch stack,
+  `parse5@^8`, `whatwg-url@^17`) but all of it is installed as
+  transitive dependencies and none of it is referenced by first-party
+  code — no manifest change beyond the two devDep ranges was needed.
+
+  No source files changed: jsdom is only ever loaded by the vitest
+  dom-environment loader, never imported directly. All 216 `core`
+  tests and all 54 `2d` tests pass in the new environment, including
+  the DOM-heavy suites (`2d`'s `Txt`, `clone`, `query`, `children`
+  and `state` suites render against the jsdom document). Environment
+  construction got somewhat slower (a few seconds per suite run),
+  consistent with jsdom 30's fuller spec coverage.
+
+  Verification: `timeout 60s npm run core:test` — 20 files / 216
+  tests pass; `timeout 60s npm run 2d:test` — 10 files / 54 tests
+  pass; `npx eslint "**/*.ts?(x)"` passes unchanged and
+  `npm run prettier:fix` reflowed nothing (repo-wide check is
+  clean); `npm ls jsdom` resolves a single hoisted 30.0.1 copy for
+  both consuming workspaces. The
+  `workspace/motion-canvas/dependency-tree.md` report was
+  regenerated to reflect the new subtree.
 
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)

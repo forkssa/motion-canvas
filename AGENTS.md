@@ -85,7 +85,10 @@ pin and the root `engines` floor (`>=24.20.0`).
   alive after the run finishes, waiting for `q`, and the per-package scripts
   invoke bare `vitest`, which drops into watch mode.
 - Single test: `npx vitest run <path>` from `packages/core` or `packages/2d`
-  (jsdom env; `core` uses `vitest.setup.ts`).
+  (jsdom env; `core` uses `vitest.setup.ts`). jsdom is declared as a devDep in
+  both `.package.json` files (currently `^30.0.1`) and is only loaded by the
+  vitest dom-environment — never import it directly; vitest@0.34 instantiates
+  jsdom 30 programmatically without peer conflicts.
 - E2E: `npm run e2e:test -- run` (non-interactive; plain `npm run e2e:test`
   drops into vitest watch mode on a TTY) — Playwright **Firefox** headless +
   `jest-image-snapshot@^6.5.2`; spins up Vite server itself. Failure diffs:

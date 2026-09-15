@@ -31,7 +31,7 @@
     "@motion-canvas/internal": "0.0.0",
     "@motion-canvas/ui": "4.0.0",
     "clsx": "^2.0.0",
-    "jsdom": "^22.1.0",
+    "jsdom": "^30.0.1",
     "vitest": "^0.34.6"
   },
   "dependencies": {
