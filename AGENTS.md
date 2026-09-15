@@ -38,7 +38,12 @@ pin and the root `engines` floor (`>=24.20.0`).
   `@codemirror/lang-javascript@^6.2.5` over `@lezer/javascript@^1.5.4`. The
   deprecated `CodeBlock` component and its `code-fns` dependency were removed in
   4.0.0 — `Code` (`src/lib/components/Code.ts`) is the only code node; it keeps
-  `nodeName('CodeBlock')` so older scenes still deserialize.
+  `  nodeName('CodeBlock')` so older scenes still deserialize. SVG path parsing
+  uses `parse-svg-path@^0.2.0`, which ships its own types (default export
+  `parse`, `Command` = `[string, ...number[]]` imported as
+  `{Command as PathCommand}` in `getPathProfile.ts`) — the old ambient shim
+  `src/lib/parse-svg-path.d.ts` was removed in favor of the upstream
+  declarations.
 - `ui`: editor shell (Preact + `@preact/signals`, Vite). `build` =
   `tsc && vite build`; `type` = `tsc -w`. Its `vite-plugin-dts` stays on
   `^4.5.4` on purpose: 4.5.x dropped the hoisted `vue-tsc`/`@volar` dependency

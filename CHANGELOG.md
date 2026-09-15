@@ -1342,6 +1342,56 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
   both consuming workspaces. The
   `workspace/motion-canvas/dependency-tree.md` report was
   regenerated to reflect the new subtree.
+* upgrade `parse-svg-path` from 0.1.2 to 0.2.0
+
+  `parse-svg-path` is the ESM SVG `d`-attribute parser used by the
+  `2d` renderer to build curve profiles from SVG path data
+  (`packages/2d/src/lib/curves/getPathProfile.ts`, consumed by
+  `SVG` / `Path` node rendering). `packages/2d/package.json` moves
+  its direct dependency from `^0.1.2` to `^0.2.0` (the new `latest`
+  dist-tag; the package's previous release `0.1.2` had been frozen
+  since 2020), and `package-lock.json` re-resolves it to a single
+  hoisted 0.2.0 copy.
+
+  0.2.0 is an upstream repackage of the 0.1.x parser: the parsing
+  logic itself is unchanged (same `parse(path)` default export,
+  relative/absolute command handling, implicit `lineto` insertion
+  after multi-pair `moveto`), but the distribution was modernized —
+  the package is now `"type": "module"` with proper `exports` maps
+  (`import` → `dist/index.mjs`, `require` → `dist/index.cjs`, both
+  shipping bundled `.d.mts` / `.d.cts` declarations). This is the
+  one breaking seam: 0.1.2 shipped **no** types, which is why the
+  repo carried a hand-written ambient shim,
+  `packages/2d/src/lib/parse-svg-path.d.ts` (`declare module
+  'parse-svg-path'` exporting a fixed 8-tuple `PathCommand`). With
+  0.2.0's real types in place that shim is redundant and would
+  shadow the package's own declarations, so:
+
+  - `packages/2d/src/lib/parse-svg-path.d.ts` was deleted.
+  - `packages/2d/src/lib/curves/getPathProfile.ts` now imports the
+    upstream type: `import parse, {Command as PathCommand} from
+    'parse-svg-path'`. The upstream `Command` type is
+    `[string, ...number[]]` (command letter followed by its numeric
+    arguments) — slightly looser than the old fixed 8-tuple, but the
+    only consumers are the `getArg` / `getVector2` helpers, which
+    index by position and cast, so typing is unchanged in practice.
+
+  Upgrade procedure followed the repo's uninstall-first practice:
+  `npm uninstall parse-svg-path -w packages/2d` followed by
+  `npm add parse-svg-path@latest -w packages/2d` and `npm dedupe`.
+  No companion bumps were required — parse-svg-path has no runtime
+  dependencies in 0.2.0.
+
+  Verification: `npm run 2d:build` (lib `tspc` build + editor rollup
+  bundle) passes; `npx vitest run` from `packages/2d` — 10 files /
+  54 tests pass; `npx vitest run` from `packages/core` — 20 files /
+  216 tests pass (the SVG/path suites exercise the new 0.2.0
+  import path); `npx eslint` on the touched file passes and
+  `npm run prettier:fix` reflowed nothing (repo-wide check is
+  clean); `npm ls parse-svg-path` resolves the single 0.2.0 copy
+  under `@motion-canvas/2d`. The
+  `workspace/motion-canvas/dependency-tree.md` report was
+  regenerated to reflect the new subtree.
 
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)

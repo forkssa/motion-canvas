@@ -42,7 +42,7 @@
     "@preact/signals": "^2.11.2",
     "escape-string-regexp": "^5.0.0",
     "mathjax-full": "^3.2.2",
-    "parse-svg-path": "^0.1.2",
+    "parse-svg-path": "^0.2.0",
     "preact": "^10.29.8"
   }
 }

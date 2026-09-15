@@ -286,6 +286,25 @@ saved with older versions still deserialize correctly.
 
 ### Build System
 
+* upgrade `parse-svg-path` from `^0.1.2` to `^0.2.0`
+
+  The SVG `d`-attribute parser backing
+  `src/lib/curves/getPathProfile.ts` (curve profiles for `SVG` /
+  `Path` nodes). Upstream 0.2.0 re-packages the parser as a proper
+  ESM+CJS dual package (`"type": "module"`, `exports` maps,
+  bundled type declarations) without changing the parsing logic —
+  its `parse` default export and command array shapes are
+  unchanged.
+
+  The one source-level consequence: 0.2.0 now ships its own types
+  (a `Command` = `[string, ...number[]]` tuple type), so the
+  hand-written ambient declaration shim
+  `packages/2d/src/lib/parse-svg-path.d.ts` was deleted and
+  `src/lib/curves/getPathProfile.ts` imports the upstream
+  `Command` type instead (`{Command as PathCommand}`). Verified
+  with the lib build (`tspc`), the editor rollup bundle and the
+  unit suite (10 files / 54 tests pass).
+
 * declare `lib: ["ES2022", "DOM", "DOM.Iterable"]` in `src/tsconfig.base.json`
 
   A typing-only change: `target` remains `es2020` so emitted output is
