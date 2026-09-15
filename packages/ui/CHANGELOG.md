@@ -180,6 +180,28 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   Including `import '@motion-canvas/core/lib/patches';` at the top of the project file is no longer necessary.
 
 
+## Unreleased
+
+### Build System
+
+* adapt the direct `chroma-js` usage to v3 (upgraded with `@motion-canvas/core`)
+
+  The editor shell imports `chroma-js` directly in two controls —
+  `src/components/controls/ColorPicker.tsx` (`hsv()` drives the HSV
+  picker) and `src/components/controls/ColorInput.tsx` (`valid()`
+  validates typed colors). With `chroma-js` upgraded to `3.2.0` by
+  `@motion-canvas/core`, and `@types/chroma-js` 3.x no longer typing
+  named value exports (only the default export), both files switch to
+  the default import: `import chroma from 'chroma-js'` with
+  `chroma.hsv(...)` / `chroma.valid(...)` call sites. Runtime behavior
+  is unchanged; the dependency itself is still resolved through the
+  workspace-hoisted copy and bundled into the UI distribution by Vite
+  (`@motion-canvas/core` and `preact` remain the only externals).
+
+  Verification: `npm run ui:build` (`tsc && vite build`) passes,
+  `npx eslint "**/*.ts?(x)"` is clean and `npm run prettier:fix`
+  reflows nothing.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 

@@ -29,7 +29,19 @@ pin and the root `engines` floor (`>=24.20.0`).
 ## Package boundaries
 
 - `core`: animation runtime (signals, flow, scenes, threading). Build:
-  `tspc -p tsconfig.build.json`; bundle: `rollup -c rollup.config.mjs`.
+  `tspc -p tsconfig.build.json`; bundle: `rollup -c rollup.config.mjs`. Colors
+  wrap chroma-js (`chroma-js@^3.2.0` + `@types/chroma-js@^3.1.2`; previously
+  exact-pinned to `2.4.2`/`2.4.4` to dodge the broken `2.5.0-*` pre-releases).
+  `@types/chroma-js` 3.x is ESM-style (`export default chroma`), types no named
+  value exports, and its internal `chroma` namespace cannot be module-augmented,
+  so `src/types/Color.ts` uses the default import, declares a local
+  `interface Color extends ChromaColor, Type, WebGLConvertible` paired with
+  `export const Color: ColorStatic`, and redeclares chroma's chainable methods
+  (parameters via `Parameters<ChromaColor[...]>`) to return the extended
+  `Color`. Keep that interface/const pair as-is: exporting an aliased interface
+  instead makes declaration emit fail downstream (TS4058 in `2d`). `Color.css()`
+  / `serialize()` emit modern space-separated CSS (`rgb(0 0 0)`), which is what
+  lands in meta files and the UI color input now.
 - `2d`: renderer + editor panels. Split build: `build-lib`
   (`tspc -p src/lib/tsconfig.build.json`) + `build-editor`
   (`rollup -c rollup.editor.mjs`). Unit tests cover only `src/lib/**/*.test.*`.
@@ -57,7 +69,13 @@ pin and the root `engines` floor (`>=24.20.0`).
   (not `JSX.HTMLAttributes`), and `Ref`/`RefObject` live in `preact` — `Ref` is
   the `RefObject | RefCallback | null` union, so ref objects accessed via
   `.current` should be typed `RefObject<T>`; JSX spreads (but not literal attrs)
-  tolerate the extra `div`-level `disabled` forwarded by `AudioClip`.
+  tolerate the extra `div`-level `disabled` forwarded by `AudioClip`. The color
+  controls import `chroma-js` directly without declaring it — it resolves
+  through the workspace-hoisted copy pulled in by `core` and Vite bundles it
+  into `dist` (externals stay `@motion-canvas/core` and preact). Since
+  `@types/chroma-js` 3.x only types the default export, always use
+  `import chroma from 'chroma-js'` (`chroma.hsv(...)`, `chroma.valid(...)`) —
+  named value imports no longer type-check.
 - `vite-plugin`: plain `tsc` build, peer `vite 4.x || 5.x`. Its `skipLibCheck`
   is not accidental — keep it.
 - `ffmpeg`: dual `client/tsconfig.json` + `server/tsconfig.json` builds; license

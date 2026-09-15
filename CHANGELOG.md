@@ -1388,10 +1388,127 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
   216 tests pass (the SVG/path suites exercise the new 0.2.0
   import path); `npx eslint` on the touched file passes and
   `npm run prettier:fix` reflowed nothing (repo-wide check is
-  clean); `npm ls parse-svg-path` resolves the single 0.2.0 copy
+  clean);   `npm ls parse-svg-path` resolves the single 0.2.0 copy
   under `@motion-canvas/2d`. The
   `workspace/motion-canvas/dependency-tree.md` report was
   regenerated to reflect the new subtree.
+
+* upgrade `chroma-js` from 2.4.2 to 3.2.0 (with `@types/chroma-js` 2.4.4 → 3.1.2)
+
+  `chroma-js` is the color-manipulation library behind
+  `@motion-canvas/core`'s `Color`: `packages/core/src/types/Color.ts`
+  extends the chroma `Color` class with the signal/WebGL plumbing
+  (`symbol`, `toSymbol`, `toUniform`, `serialize`, and the statics
+  `Color.lerp` / `Color.createLerp` / `Color.createSignal`) and
+  re-exports it as the public `Color` of the library. The UI
+  additionally consumes chroma directly — `chroma.hsv()` drives the
+  HSV picker in
+  `packages/ui/src/components/controls/ColorPicker.tsx` and
+  `chroma.valid()` validates the text input in `ColorInput.tsx`.
+
+  Both `core` manifest entries were pinned exactly since the 2024
+  "force valid chroma-js version" fix (`6edcce3`, `chroma-js@2.4.2` /
+  `@types/chroma-js@2.4.4`) to dodge the broken `2.5.0-*`
+  pre-releases. They now move to the current registry `latest`
+  releases as carets — `chroma-js@^3.2.0` and
+  `@types/chroma-js@^3.1.2` — following the repo's uninstall-first
+  practice: `npm uninstall chroma-js @types/chroma-js -w
+  packages/core`, `npm add chroma-js@latest @types/chroma-js@latest -w
+  packages/core`, then `npm dedupe`. Neither package has runtime
+  dependencies, so `package-lock.json` changes only the two entries
+  (18 insertions / 16 deletions) and `npm ls` resolves a single
+  hoisted 3.2.0 / 3.1.2 copy for `@motion-canvas/core`.
+
+  Upstream 3.x behavior changes
+  -----------------------------
+
+  - 3.0.0 adds modern CSS color spaces (`lab()`, `lch()`, `oklab()`,
+    `oklch()`), exposes `setLabWhitePoint`, switches OKLab to the W3C
+    implementation, and — the one overtly breaking change — stops
+    emitting legacy comma-separated CSS. `color.css()` now returns
+    modern space-separated syntax: `rgb(255 0 0)` and
+    `rgb(255 0 0 / 0.5)` instead of `rgb(255,0,0)` and
+    `rgba(255,0,0,0.5)`. It also makes the default and named exports
+    equivalent in ES6.
+  - 3.1.0 parses `'transparent'`, exposes colorbrewer palette names,
+    and fixes modern-CSS percentage-alpha parsing plus
+    `lch()`/`oklch()` output for hue-less colors.
+  - 3.1.2 fixes Lch interpolation of hue-less colors (grays) and
+    3.2.0 makes `scale.domain()` return the original domain array
+    when called without arguments.
+
+  `@types/chroma-js` 3.x is a declaration rewrite
+  -----------------------------------------------
+
+  The 2.x declarations used `export = chroma`, which allowed the repo
+  to extend chroma's `Color` interface and add the `Color` /
+  `ColorStatic` statics through `declare module 'chroma-js'`. The 3.x
+  declarations are ESM-style — `export default chroma` plus type-only
+  aliases (`export type Color = chroma.Color`). The internal `chroma`
+  namespace holding `Color`, `ChromaStatic` and `InterpolationMode`
+  is not exported, and module augmentation can only patch exported
+  declarations, so the previous augmentation approach is impossible;
+  the new file also no longer types any named value exports (`Color`,
+  `mix`, `hsv`, `valid`) or the `chroma.Color` static. Consequences
+  handled in this commit:
+
+  - `packages/core/src/types/Color.ts` is rewritten around a default
+    import. It declares a local `export interface Color extends
+    ChromaColor, Type, WebGLConvertible` (`ChromaColor` is the
+    upstream `Color` type alias) and pairs it with `export const
+    Color: ColorStatic`, reading the runtime class off the default
+    export (`chroma.Color`) through a single cast in the tree-shaking
+    guard IIFE. The interface/const pair exports type and value under
+    the same `Color` name, exactly like the previous class-like
+    export, so the emitted `lib/types/Color.d.ts` keeps the same
+    public surface.
+  - The chainable chroma methods that upstream type as returning the
+    base `Color` (`alpha`, `darken`, `brighten`, `saturate`,
+    `desaturate`, `mix`, `shade`, `tint`, `set`, `luminance`) are
+    redeclared to return the extended `Color`, preserving the previous
+    typing where e.g. `node.fill().alpha(0.5).serialize()`
+    type-checks. Parameter shapes are inherited via
+    `Parameters<ChromaColor[...]>` so they cannot drift from upstream.
+  - `PossibleColor` now unions in the upstream `ChromaColor` rather
+    than the augmented `Color`, so raw chroma colors remain
+    assignable to every signal/partial that accepts a color.
+  - `ColorSpace` (the ten chroma interpolation modes, previously
+    aliased from the augmented `InterpolationMode`) is declared
+    locally, and `Color.createLerp` is still attached to the
+    prototype at runtime (now also declared on the instance
+    interface).
+  - `packages/ui/src/components/controls/ColorPicker.tsx` and
+    `ColorInput.tsx` switch from the named imports (`{hsv}`,
+    `{valid}`) to the default import (`chroma.hsv()`,
+    `chroma.valid()`), because named value exports are untyped in
+    `@types/chroma-js` 3.x.
+
+  Serialization changes
+  ---------------------
+
+  - `Color.serialize()` (which delegates to `Color.css()`) now emits
+    modern CSS syntax. Serialized meta files, the UI color input and
+    canvas style resolution therefore use `rgb(0 0 0)` /
+    `rgb(0 0 0 / 0.5)` instead of `rgb(0,0,0)` / `rgba(0,0,0,0.5)`.
+    Existing meta files keep parsing (both syntaxes are valid chroma
+    input) and Canvas 2D accepts the modern syntax in every supported
+    browser. `packages/e2e/tests/project.meta` was updated by the e2e
+    run (`"background"` → `"rgb(255 255 255)"`).
+  - The `Color.lerp` unit tests were updated for the new syntax only;
+    the interpolated values themselves are unchanged
+    (`rgb(119 119 119)`), including for the hue-less Lch case that
+    3.1.2 fixed.
+
+  Verification: `npx lerna run build` (6 projects: `core`, `2d`, `ui`,
+  `vite-plugin`, `ffmpeg`, `player`) and `npx lerna run bundle` pass;
+  `timeout 60s npm run core:test` — 20 files / 216 tests pass;
+  `timeout 60s npm run 2d:test` — 10 files / 54 tests pass;
+  `npm run e2e:test -- run` passes (Firefox + jest-image-snapshot);
+  `npm run examples:build` and `npm run typecheck -w packages/docs`
+  pass; `npx eslint "**/*.ts?(x)"` is clean; `npm run prettier:fix`
+  reflows nothing. The `workspace/motion-canvas/dependency-tree.md`
+  report was regenerated (chroma-js 3.2.0 and @types/chroma-js 3.1.2,
+  auto-marked at latest).
 
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)

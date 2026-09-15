@@ -302,6 +302,62 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   `packages/docs/typedoc.js` plugin, running against the root TypeScript
   5.x. The generated `src/generated` data keeps its previous shape.
 
+* upgrade `chroma-js` from 2.4.2 to 3.2.0 (`@types/chroma-js` 2.4.4 → 3.1.2)
+
+  The package's two `dependencies` entries were exact-pinned since the
+  "force valid chroma-js version" fix (`6edcce3`) as a workaround for
+  the broken `2.5.0-*` pre-releases. They now follow the current
+  registry `latest` releases as carets: `chroma-js@^3.2.0` and
+  `@types/chroma-js@^3.1.2`. Installed with the uninstall-first
+  practice (`npm uninstall chroma-js @types/chroma-js -w packages/core`
+  → `npm add chroma-js@latest @types/chroma-js@latest -w packages/core`
+  → `npm dedupe`); `npm ls` resolves one hoisted copy of each and the
+  lockfile diff touches only these two entries.
+
+  `Color` re-export (`src/types/Color.ts`):
+
+  - `@types/chroma-js` 3.x dropped the `export = chroma` shape the old
+    module augmentation relied on. It now uses ESM-style declarations
+    (`export default chroma`, `export type Color = chroma.Color`) and
+    does not type named value exports nor `chroma.Color`, and its
+    internal `chroma` namespace cannot be augmented.
+  - The file is rewritten around the default import: a local
+    `export interface Color extends ChromaColor, Type, WebGLConvertible`
+    is paired with `export const Color: ColorStatic` (class-like
+    type + value, same public surface as before). The runtime class is
+    read from `chroma.Color` with a single cast inside the
+    tree-shaking guard IIFE.
+  - Chroma's chainable methods that return the base `Color`
+    (`alpha`, `darken`, `brighten`, `saturate`, `desaturate`, `mix`,
+    `shade`, `tint`, `set`, `luminance`) are redeclared to return the
+    extended `Color`, preserving chained calls such as
+    `node.fill().alpha(0.5).serialize()`. Parameters come from
+    `Parameters<ChromaColor[...]>` to stay in sync upstream.
+  - `PossibleColor` unions in the upstream `ChromaColor` so raw chroma
+    colors stay assignable; `ColorSpace` is declared locally with the
+    same ten modes as the previously aliased `InterpolationMode`.
+
+  Behavior changes from chroma 3.x:
+
+  - `Color.css()` (and therefore `Color.serialize()`) now returns
+    modern space-separated CSS — `rgb(0 0 0)` / `rgb(0 0 0 / 0.5)` —
+    instead of `rgb(0,0,0)` / `rgba(0,0,0,0.5)`. Old meta files still
+    parse (both syntaxes are valid chroma input) and Canvas 2D accepts
+    the new syntax; the `Color.lerp` snapshots in
+    `src/types/Color.test.ts` were updated to the new syntax with
+    unchanged interpolated values.
+  - 3.1.2 fixes Lch interpolation of hue-less (gray) colors; 3.0.0
+    switches OKLab to the W3C implementation — both can slightly shift
+    interpolated colors in `'lch'` / `'oklab'` / `'oklch'` mode.
+  - 3.1.0 adds `'transparent'` parsing and colorbrewer palettes.
+
+  Verification: `npm run core:build` and `npm run core:bundle` pass;
+  `timeout 60s npm run core:test` — 20 files / 216 tests pass;
+  `timeout 60s npm run 2d:test` — 10 files / 54 tests pass (the
+  dependent package consumes the generated `lib/types/Color.d.ts`);
+  `npm run e2e:test -- run` passes; `npx eslint "**/*.ts?(x)"` is
+  clean and `npm run prettier:fix` reflows nothing.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 
