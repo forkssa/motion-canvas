@@ -184,6 +184,43 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   the minimum). Verified: `npx eslint "**/*.ts?(x)"` exits 0 (was 49
   errors mid-migration), `tsc --noEmit` passes for `ui`, `2d` lib and
   `ffmpeg` server, and the `2d` unit suite passes (10 files, 54 tests).
+* upgrade commitlint 19 to 21 and lerna 8 to 10
+
+  `@commitlint/cli` / `@commitlint/config-conventional` move from
+  `^19.4.0` / `^19.2.2` to `^21.2.2`, pulling the whole `@commitlint/*`
+  family to 21 (`yargs` 17 → 18, `execa` chains replaced by `tinyexec`,
+  `glob` / `minimist` / `fs-extra` dropped for Node built-ins).
+  `lerna` moves from `^8.1.8` to `^10.0.1`, pulling `nx` 19 → 23 (the
+  `allowScripts` key is updated to `nx@23.2.1`) and aligning lerna's own
+  conventional stack with the new majors
+  (`conventional-commits-parser@7.1.2`,
+  `conventional-commits-filter@6.0.1`,
+  `conventional-recommended-bump@12.1.0`).
+
+  Breaking change to note: both majors raise the Node floor above CI's
+  pinned Node 20 — commitlint 21 engines require `>=22.12.0` and lerna
+  10 requires `^22.13.0 || ^24.0.0 || ^26.0.0` (commitlint 21 also drops
+  Node 18/20 support and changes the default CLI output format behind a
+  transitional `--legacy-output` flag). The `verify.yml` commit job and
+  local Husky hooks need Node 22+ to run these; no config change was
+  required (`scope-enum` allowlist and `ignores` in
+  `commitlint.config.js` behave identically under v21).
+
+  Install notes: per the repo's uninstall-first practice the old
+  families were removed before fresh-installing the new ones (plain
+  `npm install` deadlocks on stale peer edges). Two follow-up fixes
+  were needed: a nested override pins git-client's optional peers
+  (`@commitlint/read`: `conventional-commits-parser@^7.1.2`,
+  `conventional-commits-filter@^6.0.1`) so they resolve to the declared
+  majors instead of deduping to lerna's legacy copies, and the lerna
+  reinstall floated two in-range transitives (`tmp` 0.2.3 → 0.2.7,
+  `follow-redirects` 1.15.6 → 1.16.0, `clsx` 2.0.0 → 2.1.1 range).
+  Side benefit: the old stack's leftovers are gone — `rimraf` no longer
+  occurs anywhere in the tree and `npm ls --all` exits 0 with no
+  `invalid` markers. Verified: the exact CI invocation
+  (`commitlint --from HEAD~1 --to HEAD --verbose`) exits 0, an invalid
+  scope is still rejected, valid scopes pass, and
+  `lerna list --graph --toposort` output is unchanged.
 * **e2e:** upgrade `jest-image-snapshot` from 6.2.0 to 6.5.2
 
   The visual-regression matcher used only by `packages/e2e`

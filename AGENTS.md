@@ -1,7 +1,9 @@
 # AGENTS.md — motion-canvas
 
 Monorepo: npm workspaces (`packages/*`) + Lerna. Run all commands from this dir
-(the monorepo root). CI uses Node 20 (`verify.yml`); `HUSKY: 0` in CI.
+(the monorepo root). CI uses Node 24.20.0 (`verify.yml`); `HUSKY: 0` in CI.
+Note: `@commitlint/cli@21` and `lerna@10` require Node ≥22 — covered by the CI
+pin and the root `engines` floor (`>=24.20.0`).
 
 ## Setup & build order
 
