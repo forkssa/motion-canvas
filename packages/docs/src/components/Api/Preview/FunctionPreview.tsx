@@ -1,5 +1,3 @@
-import React from 'react';
-
 import SignaturePreview from '@site/src/components/Api/Preview/SignaturePreview';
 import type {JSONOutput} from 'typedoc';
 

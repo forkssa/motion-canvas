@@ -437,6 +437,64 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
     `npm run e2e:test -- run` passes
     (Playwright Firefox headless, `jest-image-snapshot` diff clean)
     after a full build.
+* upgrade prettier from 3.3.3 to 3.9.6
+
+  The root devDependency moves from `^3.3.3` to `^3.9.6`
+  (`package-lock.json` re-resolves to `3.9.6`,
+  `sha512-OpN0zzVdiaiAhxpuuj5efpIS4sY9j7bY6uR5mnj5yPzGkdkjNKSJeUThPb60Jw29QuAZgA4o+/iB49kFiaBX6g==`).
+  Prettier is declared only at the workspace root (`package.json`
+  devDependencies; no `packages/*` manifest references it) and is used
+  through the shared `npm run prettier` / `prettier:fix` scripts and
+  `lint-staged`'s `*.{js,jsx,ts,tsx,md,scss}` hook. The
+  `prettier-plugin-organize-imports` companion stays at `^4.0.0`: its
+  peer range (`prettier >=2.0`, `typescript >=2.9`) already accepts
+  3.9.x and it keeps sorting imports correctly through the new
+  engine, so no companion bump was required (latest is 4.3.0). Since
+  prettier 3.x is dependency-free, `npm dedupe` was a no-op and the
+  single hoisted copy keeps being shared with the plugin (`deduped`).
+
+  The jump crosses several minors with default-formatting changes
+  (3.4 normalizes TS modifier order, 3.5/3.6 rework assignment,
+  union and CSS declaration layout), so 105 source files — 39 `.ts`,
+  59 `.tsx`, 5 `.mdx`, 1 `.css`, 1 `.scss` — were reformatted with
+  `npm run prettier:fix`:
+
+  - All 152 `public declare readonly …` signal-field declarations in
+    `2d` / `examples` became `declare public readonly …`: prettier
+    now emits `declare` before accessibility modifiers. This is
+    semantically identical to TypeScript (both orders are legal); it
+    is the bulk of the diff (`Layout.ts` alone: 42 signal fields).
+    `@typescript-eslint/explicit-member-accessibility` still sees
+    the `public` modifier, so the eslint rule set is unaffected.
+  - Unions that fit the 80-col print width are no longer exploded
+    one member per line — e.g. `PossibleCodeFragment` collapsed from
+    a five-line `|` chain to one line (~57 such removed lines across
+    `2d` / `core` types).
+  - Long `export interface X extends Omit<…>` headers now keep
+    `extends Omit<` on the first line and dangle the closing `>` on
+    its own indented line (`ui/Toggle.tsx`, `ui/Button.tsx`, …).
+  - CSS/SCSS values that must break now break after the colon with
+    the whole value indented on the following line(s) instead of
+    mid-value after a comma (`docs/src/css/custom.css` font stacks,
+    `Controls.module.scss` `background-image` gradients).
+  - `.mdx` docs/blog prose re-wrapped under the updated JSX/markdown
+    fill algorithm (line reflows, removal of now-unneeded `{' '}`
+    gap expressions; no content or markup changes).
+
+  Side effect of absorbing the format changes: the previously
+  pre-existing repo-wide `prettier --check` failures (the
+  `packages/docs` React files called out in earlier entries as
+  unrelated warnings) are gone — the full `npm run prettier` check
+  now exits clean, restoring the `prettier` job of `verify.yml` to
+  green.
+
+  Verification: `npm run prettier` exits 0 repo-wide (was 105
+  warnings mid-upgrade); `npm run eslint` (`**/*.ts?(x)`) passes
+  unchanged — the reformat only moves whitespace and modifier
+  order, and every rewrite is a semantics-preserving prettier
+  transformation, so builds, unit tests and e2e results are
+  unaffected. `npm ls prettier` resolves a single 3.9.6 copy shared
+  with `prettier-plugin-organize-imports@4.0.0`.
 
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)

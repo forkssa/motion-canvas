@@ -59,7 +59,7 @@ export class CodeBlock extends Shape {
 
   @initial('tsx')
   @signal()
-  public declare readonly language: SimpleSignal<string, this>;
+  declare public readonly language: SimpleSignal<string, this>;
 
   @initial('')
   @parser(function (this: CodeBlock, value: Code): CodeTree {
@@ -72,15 +72,15 @@ export class CodeBlock extends Shape {
       : value;
   })
   @signal()
-  public declare readonly code: Signal<Code, CodeTree, this>;
+  declare public readonly code: Signal<Code, CodeTree, this>;
 
   @initial(undefined)
   @signal()
-  public declare readonly theme: Signal<CodeStyle | null, CodeStyle, this>;
+  declare public readonly theme: Signal<CodeStyle | null, CodeStyle, this>;
 
   @initial(lines(0, Infinity))
   @signal()
-  public declare readonly selection: SimpleSignal<CodeRange[], this>;
+  declare public readonly selection: SimpleSignal<CodeRange[], this>;
 
   protected *tweenSelection(
     value: CodeRange[],
@@ -97,7 +97,7 @@ export class CodeBlock extends Shape {
 
   @initial(0.32)
   @signal()
-  public declare readonly unselectedOpacity: SimpleSignal<number, this>;
+  declare public readonly unselectedOpacity: SimpleSignal<number, this>;
 
   private codeProgress = createSignal<number | null>(null);
   private selectionProgress = createSignal<number | null>(null);

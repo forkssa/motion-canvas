@@ -11,8 +11,7 @@ export default function ReferenceType({
 }) {
   const lookup = useApiLookup(type.project);
   const targetId = (type.target ?? (type as unknown as {id?: number}).id) as
-    | number
-    | undefined;
+    number | undefined;
   const reference = lookup?.[targetId];
   const to = type.externalUrl ?? getUrl(reference);
 

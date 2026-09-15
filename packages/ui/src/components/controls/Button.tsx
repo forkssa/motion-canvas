@@ -2,8 +2,10 @@ import clsx from 'clsx';
 import type {ButtonHTMLAttributes} from 'preact';
 import styles from './Controls.module.scss';
 
-export interface ButtonProps
-  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'loading'> {
+export interface ButtonProps extends Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  'loading'
+> {
   main?: boolean;
   loading?: boolean;
 }

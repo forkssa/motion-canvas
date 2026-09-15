@@ -91,8 +91,12 @@ pin and the root `engines` floor (`>=24.20.0`).
   `null`), TSDoc `tsdoc/syntax` errors, strict `naming-convention` (camelCase
   vars/fns, PascalCase types/enums, `T`-prefixed type params, unused params must
   be `_`-prefixed).
-- Prettier: `singleQuote`, `bracketSpacing: false`, 80 col, `organize-imports`
-  plugin auto-sorts imports — don't hand-order them.
+- Prettier (root devDep, `^3.9.6`, repo-wide check is clean): `singleQuote`,
+  `bracketSpacing: false`, 80 col, `organize-imports` plugin auto-sorts imports
+  — don't hand-order them. 3.4+ normalizes TS modifier order
+  (`declare public readonly`, never `public declare`) and 3.5+ collapses unions
+  that fit the print width to one line — write new code in the post-3.9 style
+  above.
 - Ignored by lint/style: `**/*.js`, `**/*.d.ts`, `packages/template`,
   `packages/create/template-*`.
 - Never edit generated output: `packages/*/lib|dist|build`,

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import Signatures from '@site/src/components/Api/Signatures';
 import ReferenceType from '@site/src/components/Api/Type/ReferenceType';
 import Heading from '@theme/Heading';
