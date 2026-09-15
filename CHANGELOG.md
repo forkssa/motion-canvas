@@ -121,6 +121,77 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### Build System
 
+* upgrade `prettier-plugin-organize-imports` from 4.0.0 to 4.3.0
+
+  The root devDependency moves from `^4.0.0` to `^4.3.0` (registry
+  latest). The jump is not a drop-in one:
+
+  - 4.3.0 declares the optional peer `vue-tsc@^2.1.0 || 3`, which
+    conflicts with the `vue-tsc@2.0.29` copy npm had hoisted into the
+    workspace root as a hard dependency of `vite-plugin-dts@4.0.3`
+    (`packages/ui` uses the plugin to emit `lib/main.d.ts` with
+    `rollupTypes: true` under CI). Installing 4.3.0 fails outright with
+    `npm error code ERESOLVE` because the single root-level `vue-tsc`
+    slot cannot satisfy both `2.0.29` and `^2.1.0 || 3` at once.
+  - `vue-tsc` is dead weight in this repo (no Vue tooling consumes it),
+    so the conflict is dissolved on the other side: `vite-plugin-dts`
+    is upgraded within its existing `^4` range from 4.0.3 to 4.5.4
+    (last 4.x release). 4.5.x dropped its `vue-tsc` /
+    `@volar/typescript@^2.3.4` / `@vue/language-core@2.0.29` /
+    `api-extractor@7.47.4` dependency stack in favor of
+    `@volar/typescript@^2.4.11` + `@vue/language-core@2.2.0` +
+    `@microsoft/api-extractor@^7.50.1`; the whole
+    `vue-tsc → @volar/* → @vue/language-core` subtree (40 packages,
+    including old `@volar/` language plugins) leaves `node_modules` and
+    the peer edge disappears. `vite-plugin-dts@5.x` (current latest)
+    was deliberately not taken: it moves api-extractor to a *peer*
+    dependency and would force installing `@microsoft/api-extractor`
+    explicitly — out of scope for this change.
+  - No config change is needed in `packages/ui/vite.config.ts`: the
+    `dts({rollupTypes: …})` call works identically, and the
+    `ui` build (incl. the api-extractor-backed `.d.ts` rollup) passes
+    against 4.5.4.
+
+* pin `typescript` to `~5.4.2` at the root
+
+  The reinstall above refreshed the whole dependency tree, and the
+  root `typescript` range `^5.2.2` re-resolved from the hoisted 5.4.2
+  to 5.9.3 (the old 5.4.2 hoist had only existed because it was also
+  the exact version pinned by `vite-plugin-dts@4.0.3`'s api-extractor,
+  which the upgrade removed). TypeScript 5.9 breaks the build in two
+  places: `ts-patch@3.0.2` (`tspc`, the patched `tsc` used by `core`,
+  `2d` and `internal` builds) cannot slice the 5.9 module format and
+  dies with `Error: Could not recognize TS format during slice!`, and
+  `typedoc@0.25.13` only supports TypeScript up to 5.4.x. The root
+  manifest now declares `~5.4.2` (resolving to 5.4.5), which pins the
+  entire 5.x line and makes that compatibility ceiling explicit
+  instead of incidental; the docs workspace's dedicated nested
+  `typescript@~6.0.2` copy (used only by its `typecheck` script) is
+  unaffected.
+
+  A side effect worth recording: the import-sorting performed by
+  `prettier-plugin-organize-imports` follows the TypeScript version it
+  runs against. Under TS 5.9.3 the plugin's check flagged all 13
+  barrel `index.ts` files because 5.9's `organizeImports` sorts
+  case-insensitively (`…`, `deprecate`, `DetailedError`,
+  `errorToLog`, `ExperimentalError`, …). Under the restored 5.4.x the
+  sort matches the committed code exactly, so the repo-wide
+  `prettier --check` after this change is clean and **zero source
+  files differ** — no reformats, no barrel re-ordering.
+
+  Verification for this round: `npm dedupe` (removes the leftover
+  `@volar` descendants and two stale nested semver/brace-expansion
+  copies), `npm run prettier` (`--check`) passes, `npx eslint
+  "**/*.ts?(x)"` passes, `npx lerna run build --scope
+  @motion-canvas/core` plus a full `npx lerna run build` succeed
+  (exercising both `tspc` and the new `vite-plugin-dts`), and unit
+  tests pass (`core` / `2d`). One harmless nested copy remains:
+  `@microsoft/api-extractor@7.59.1` keeps its own private
+  `typescript@5.9.3` (an exact hard dependency of that release,
+  isolated under `node_modules/@microsoft/api-extractor/` and used
+  only during the CI-only `.d.ts` rollup), which is unaffected by the
+  root `overrides: {typescript: "$typescript"}` reference.
+
 * pin tooling used by every workspace at the root
   - `rollup@^3` added as a root devDependency: `packages/core` and
     `packages/2d` run it for `bundle` / `build-editor`, but its binary was

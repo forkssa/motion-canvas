@@ -19,9 +19,12 @@ pin and the root `engines` floor (`>=24.20.0`).
 - Docs toolchain: Docusaurus 3.10.2 + React 19. React copies are pinned
   repo-wide via root `package.json` `overrides` — don't remove them. `typedoc`
   (0.25.x) and `rollup` are root devDeps on purpose: typedoc must resolve the
-  root TypeScript 5.x (running it against a newer TS breaks it). The docs
-  workspace keeps a nested `typescript@~6.0.2` used by its `typecheck` script
-  only.
+  root TypeScript (0.25.x only supports ≤5.4.x). The root `typescript` is pinned
+  to `~5.4.2` for the same reason — `ts-patch@3.0.2` (`tspc`, the patched `tsc`
+  driving the `core`/`2d` builds) can't slice TS ≥5.5 — so the range must not be
+  widened until both move. The docs workspace keeps a nested `typescript@~6.0.2`
+  used by its `typecheck` script only; the `api-extractor` under
+  `vite-plugin-dts` ships its own private `typescript@5.9` (harmless, isolated).
 
 ## Package boundaries
 
@@ -34,7 +37,12 @@ pin and the root `engines` floor (`>=24.20.0`).
   `@lezer/common@^1.5.0`, `@lezer/highlight@^1.2.3`); the docs fiddle uses
   `@codemirror/lang-javascript@^6.2.5` over `@lezer/javascript@^1.5.4`.
 - `ui`: editor shell (Preact + `@preact/signals`, Vite). `build` =
-  `tsc && vite build`; `type` = `tsc -w`. `@preact/signals` 2.x peers on
+  `tsc && vite build`; `type` = `tsc -w`. Its `vite-plugin-dts` stays on
+  `^4.5.4` on purpose: 4.5.x dropped the hoisted `vue-tsc`/`@volar` dependency
+  stack (which used to collide with the `prettier-plugin-organize-imports` peer
+  range), and 5.x turns `@microsoft/api-extractor` into a required peer — take
+  it only together with an explicit api-extractor devDep. `rollupTypes: true`
+  (CI builds) exercises api-extractor. `@preact/signals` 2.x peers on
   `preact >= 10.25.0` — bump preact alongside it (currently `^10.29.8`). preact
   ≥10.22 ships React-style JSX types: element-specific attribute bases
   (`AnchorHTMLAttributes`, `InputHTMLAttributes`, …) are imported from `preact`
@@ -63,7 +71,11 @@ pin and the root `engines` floor (`>=24.20.0`).
 - Style check: `npm run prettier` (`--check`); fix with `npm run prettier:fix` /
   `npm run eslint:fix`.
 - Unit: `npx lerna run build && npx lerna run test`, or per package:
-  `npm run core:test`, `npm run 2d:test`.
+  `npm run core:test`, `npm run 2d:test`. Always run test commands
+  (`lerna run test`, `core:test`, `2d:test`, …) with a 60s timeout (e.g.
+  `timeout 60s npm run core:test`): on a TTY lerna's Nx-powered task UI stays
+  alive after the run finishes, waiting for `q`, and the per-package scripts
+  invoke bare `vitest`, which drops into watch mode.
 - Single test: `npx vitest run <path>` from `packages/core` or `packages/2d`
   (jsdom env; `core` uses `vitest.setup.ts`).
 - E2E: `npm run e2e:test -- run` (non-interactive; plain `npm run e2e:test`
@@ -92,11 +104,14 @@ pin and the root `engines` floor (`>=24.20.0`).
   vars/fns, PascalCase types/enums, `T`-prefixed type params, unused params must
   be `_`-prefixed).
 - Prettier (root devDep, `^3.9.6`, repo-wide check is clean): `singleQuote`,
-  `bracketSpacing: false`, 80 col, `organize-imports` plugin auto-sorts imports
-  — don't hand-order them. 3.4+ normalizes TS modifier order
-  (`declare public readonly`, never `public declare`) and 3.5+ collapses unions
-  that fit the print width to one line — write new code in the post-3.9 style
-  above.
+  `bracketSpacing: false`, 80 col, `organize-imports` plugin (`^4.3.0`)
+  auto-sorts imports — don't hand-order them. The sort order follows the root
+  TypeScript version (5.4.x sorts case-sensitively: `DetailedError` before
+  `beginSlide`; TS ≥5.9 flips to case-insensitive and would flag every barrel
+  `index.ts`), which is another reason `typescript` stays pinned to `~5.4.2`.
+  3.4+ normalizes TS modifier order (`declare public readonly`, never
+  `public declare`) and 3.5+ collapses unions that fit the print width to one
+  line — write new code in the post-3.9 style above.
 - Ignored by lint/style: `**/*.js`, `**/*.d.ts`, `packages/template`,
   `packages/create/template-*`.
 - Never edit generated output: `packages/*/lib|dist|build`,

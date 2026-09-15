@@ -51,10 +51,10 @@
     "lerna": "^10.0.1",
     "lint-staged": "^15.2.9",
     "prettier": "^3.9.6",
-    "prettier-plugin-organize-imports": "^4.0.0",
+    "prettier-plugin-organize-imports": "^4.3.0",
     "rollup": "^3.29.4",
     "typedoc": "^0.25.13",
-    "typescript": "^5.2.2",
+    "typescript": "~5.4.2",
     "vite": "^4.5.0"
   },
   "overrides": {
