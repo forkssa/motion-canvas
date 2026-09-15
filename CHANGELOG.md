@@ -281,6 +281,27 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   markers, `tspc --noEmit` passes for the `2d` lib, the `2d` unit
   suite passes (10 files, 54 tests), docs `typecheck` passes, and the
   fiddle sources are eslint-clean.
+* upgrade `@lezer/highlight` from 1.2.0 to 1.2.3
+
+  Patch-only bump of the direct `packages/2d` dependency (consumed via
+  the stable `highlightTree` / `tags` APIs in `LezerHighlighter.ts` and
+  `DefaultHighlightStyle.ts`); 1.2.3 is the `latest` dist-tag with no
+  API changes. The install initially nested 1.2.3 under `packages/2d`
+  next to the hoisted 1.2.0 kept for the docs chain, so `npm dedupe`
+  collapsed everything back to a single top-level copy shared by both
+  workspaces. Precise lock diff confirms 1.2.0 → 1.2.3 is the only
+  version change. Verified: `npm ls --all` exits 0, `2d` lib
+  typecheck and unit suite (10 files, 54 tests) pass, consumer files
+  eslint-clean.
+* upgrade `@lezer/javascript` from 1.4.13 to 1.5.4
+
+  Minor bump of the direct `packages/docs` dependency (consumed via
+  the generated `parser` export in `Fiddle/SharedPlayer.ts`); no API
+  changes affecting the repo. Its floors (`@lezer/lr ^1.3.0`,
+  `@lezer/common ^1.2.0`, `@lezer/highlight ^1.1.3`) are already met
+  by the hoisted copies, so the lock change is a single in-place
+  version bump shared with `lang-javascript`. Verified: `npm ls --all`
+  exits 0, docs `typecheck` passes, consumer file eslint-clean.
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 

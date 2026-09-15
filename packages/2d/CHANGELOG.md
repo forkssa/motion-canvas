@@ -30,6 +30,13 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   the shared `@lezer/common` floor to `^1.5.0` (hoisted copy now
   1.5.2). Verified with the lib typecheck (`tspc`) and the unit suite.
 
+* upgrade `@lezer/highlight` from 1.2.0 to 1.2.3
+
+  Patch-only bump (`latest` dist-tag, no API changes) of the direct
+  dependency used for `highlightTree` / `tags`. Deduplicated to a
+  single top-level copy shared with the docs workspace. Lib
+  typecheck, unit suite, and lint all pass unchanged.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 **Note:** Version bump only for package @motion-canvas/2d
