@@ -35,7 +35,10 @@ pin and the root `engines` floor (`>=24.20.0`).
   (`rollup -c rollup.editor.mjs`). Unit tests cover only `src/lib/**/*.test.*`.
   The code editor runs CodeMirror (`@codemirror/language@^6.12.4`, shared
   `@lezer/common@^1.5.0`, `@lezer/highlight@^1.2.3`); the docs fiddle uses
-  `@codemirror/lang-javascript@^6.2.5` over `@lezer/javascript@^1.5.4`.
+  `@codemirror/lang-javascript@^6.2.5` over `@lezer/javascript@^1.5.4`. The
+  deprecated `CodeBlock` component and its `code-fns` dependency were removed in
+  4.0.0 — `Code` (`src/lib/components/Code.ts`) is the only code node; it keeps
+  `nodeName('CodeBlock')` so older scenes still deserialize.
 - `ui`: editor shell (Preact + `@preact/signals`, Vite). `build` =
   `tsc && vite build`; `type` = `tsc -w`. Its `vite-plugin-dts` stays on
   `^4.5.4` on purpose: 4.5.x dropped the hoisted `vue-tsc`/`@volar` dependency
@@ -59,8 +62,13 @@ pin and the root `engines` floor (`>=24.20.0`).
   plugin required by `core`/`2d` vitest configs.
 - `docs`: private, not published. Docusaurus 3.10.2 site (React 19, MDX v3,
   `plugin-svgr`); the `typedoc.js` plugin regenerates `src/generated` during
-  production builds.
-- `e2e` / `examples` / `template`: private, not published.
+  production builds. The deprecated-`CodeBlock` doc page
+  (`docs/components/code-block.mdx`) and the 2.4.0/2.6.0 blog posts (which
+  linked it) were removed in 4.0.0.
+- `e2e` / `examples` / `template`: private, not published. The `code-block`
+  example project was removed in 4.0.0; adding a new example requires both a
+  `src/*.ts` project file (plus its `scenes/*` entry and `.meta`) and a line in
+  the `project` list of `packages/examples/vite.config.ts`.
 
 ## Verify (mirrors `verify.yml`)
 
