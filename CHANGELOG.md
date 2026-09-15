@@ -147,6 +147,43 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   same `Array.prototype.at` reason (typing-only; `target` and output
   unchanged).
 * **examples:** `types` restricted to `["node"]`, matching `template`.
+* migrate lint from eslint 8 (eslintrc) to eslint 10 (flat config)
+
+  `eslint` moves from `^8.54.0` to `^10.10.0`, which removes the eslintrc
+  config system entirely, so `.eslintrc.json` is replaced by
+  `eslint.config.mjs`. Companion bumps, all required for v10 support:
+  `@typescript-eslint/parser` / `@typescript-eslint/eslint-plugin`
+  `^6.11.0` → `^8.70.0` (v6 peers `eslint ^7 || ^8`; v8.56+ accepts
+  `^8.57 || ^9 || ^10`), `eslint-plugin-tsdoc` `^0.2.17` → `^0.5.2`
+  (flat-config plugin object, pairs with `@typescript-eslint/utils`
+  `~8.56.0`), plus new devDependencies `@eslint/js@^10.0.1` (core
+  `recommended` config) and `globals@^17.12.0` (replaces `env.browser` /
+  `env.es2021`). Ignore rules (`**/*.js`, `**/*.d.ts`,
+  `packages/template`, `packages/create/template-*`) and the curated
+  rule set carry over unchanged, with two deliberate adjustments where
+  v8 changed defaults: `@typescript-eslint/no-unused-expressions` is
+  `off` (the codebase relies on bare signal reads like
+  `afterRender.value;` for reactive subscriptions, on
+  `cond && action()`, and on exhausting generators via `[...task];`) and
+  `no-unused-vars` sets `caughtErrors: 'none'` (restores the v8 default
+  the codebase's `catch (_)` convention was written against).
+
+  Genuine findings from newly-added rules were fixed in code instead:
+  `no-useless-assignment` dead initializers in `2d/.../Code.ts`
+  (`let column`) and `ffmpeg/.../FFmpegExporterServer.ts`
+  (`let options`), `no-empty-object-type` memberless interfaces in
+  `ui/.../ReadOnlyInput.tsx` and `ui/.../OverlayWrapper.tsx` (now type
+  aliases), and the `ban-types` disable directive in
+  `2d/.../jsx-runtime.ts` (rule removed in v8; replaced with a
+  `no-unsafe-function-type` disable on the deliberate `Function` use).
+
+  Install note: `npm install` alone deadlocks on the v6 peer edges
+  (`ERESOLVE`), so the old family was removed with `npm uninstall`
+  before fresh-installing the new one. eslint 10 engines require
+  `^20.19.0 || ^22.13.0 || >=24` (CI's `node-version: 20` resolves past
+  the minimum). Verified: `npx eslint "**/*.ts?(x)"` exits 0 (was 49
+  errors mid-migration), `tsc --noEmit` passes for `ui`, `2d` lib and
+  `ffmpeg` server, and the `2d` unit suite passes (10 files, 54 tests).
 * **e2e:** upgrade `jest-image-snapshot` from 6.2.0 to 6.5.2
 
   The visual-regression matcher used only by `packages/e2e`

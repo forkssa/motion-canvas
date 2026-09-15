@@ -44,7 +44,10 @@ Monorepo: npm workspaces (`packages/*`) + Lerna. Run all commands from this dir
 
 ## Verify (mirrors `verify.yml`)
 
-- Lint: `npx eslint "**/*.ts?(x)"` — quote the glob.
+- Lint: `npx eslint "**/*.ts?(x)"` — quote the glob. Flat config lives in
+  `eslint.config.mjs` (eslint 10; eslintrc is not supported). Companion pins:
+  `@typescript-eslint/*` v8, `eslint-plugin-tsdoc` 0.5.x, `@eslint/js` v10,
+  `globals` v17.
 - Style check: `npm run prettier` (`--check`); fix with `npm run prettier:fix` /
   `npm run eslint:fix`.
 - Unit: `npx lerna run build && npx lerna run test`, or per package:
