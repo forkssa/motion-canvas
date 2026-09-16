@@ -139,7 +139,11 @@ pin and the root `engines` floor (`>=24.20.0`).
   (`npx --no -- commitlint --edit $1`) and `.husky/pre-commit`
   (`npx lint-staged`), wired via `core.hooksPath=.husky/_`; never add the legacy
   `#!/usr/bin/env sh` shebang or the `.husky.sh` source line to a hook file
-  (husky 9.1.2+ warns they will fail in v10). Scope must be one of:
+  (husky 9.1.2+ warns they will fail in v10). `lint-staged` (root devDep
+  `^17.5.1`; config in root `package.json`) needs Node ≥22.22.1 and Git ≥2.32.0,
+  and runs tasks without a shell — no pipes / `bash -c` in the config, and Node
+  scripts must be invoked as `node script.js` (`--shell` is gone since v16).
+  Scope must be one of:
   `2d, core, create, docs, e2e, examples, ffmpeg, legacy, player, ui, vite-plugin`.
 - ESLint extras that bite: `explicit-member-accessibility` (always write
   `public/private`), `grouped-accessor-pairs: getBeforeSet`, `eqeqeq` (except

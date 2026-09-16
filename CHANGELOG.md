@@ -1625,6 +1625,83 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
   `workspace/motion-canvas/dependency-tree.md` report was regenerated
   (husky@9.1.7, auto-marked at latest).
 
+* upgrade `lint-staged` from 15.2.9 to 17.5.1
+
+  `lint-staged` is the second half of the pre-commit pipeline:
+  `.husky/pre-commit` runs `npx lint-staged`, and the root
+  `package.json` carries its configuration — `*.{ts,tsx}` runs
+  `eslint --fix` and `*.{js,jsx,ts,tsx,md,scss}` runs
+  `prettier --write`. The root devDependency moves from `^15.2.9` to
+  `^17.5.1` (registry `latest`) following the uninstall-first
+  practice: `npm uninstall lint-staged`,
+  `npm add -D lint-staged@latest`, `npm dedupe`. No other manifest
+  changed.
+
+  Two majors of breaking changes
+  ------------------------------
+
+  - 16.0.0 replaced `execa` with `nano-spawn` (itself replaced by
+    `tinyexec` in 16.3.0) and removed the `--shell` flag, so task
+    commands are no longer evaluated by a shell and Node.js scripts
+    used as tasks must be invoked as `node script.js`. Neither
+    applies here: the config calls the local `eslint` and `prettier`
+    binaries directly and uses no shell constructs. Validation of the
+    long-removed "advanced configuration" was also dropped; our
+    config only contains globs. The Node floor moved to `20.18`.
+  - 17.0.0 raises the Node floor to `22.22.1` and verifies a Git
+    version of at least `2.32.0`. The repo runs Node 24.20.0 (root
+    `engines` floor is `>=24.20.0`) and Git 2.53.0, so both checks
+    pass. The `yaml` parser became an optional dependency — only
+    needed for YAML config files, while ours lives in package.json —
+    and `commander` was dropped in favor of `node:util`'s `parseArgs`.
+
+  Notable additions since 15.x (available, but unused here):
+  `--fail-on-changes`, `--continue-on-error`, `--hide-unstaged`,
+  `--hide-all`, `--all`, function tasks, nested task arrays for
+  controlled parallelism, a `defineConfig` helper and bundled
+  TypeScript types for the configuration.
+
+  Dependency-tree effect
+  ----------------------
+
+  The old 15.x tree pulled in `execa`, `chalk`, `commander`,
+  `lilconfig`, `micromatch`, `pidtree` and `debug@~4.3.6`, plus the
+  `listr2` tree (`cli-truncate`, `log-update`, `slice-ansi`,
+  `wrap-ansi`, …). 17.5.1 only depends on `tinyexec`, `picomatch` and
+  `string-argv` (optional `yaml`), which removes 66 packages from
+  `node_modules` (the lockfile shrinks by 1431 lines; 54 insertions).
+  The only added entry is a nested `lint-staged/node_modules/picomatch`
+  — the root already hoists `picomatch@2` for other tools, while
+  lint-staged needs the v4 line. The dedupe also un-pinned the
+  hoisted `debug`: 15.x's `~4.3.6` range had made 4.3.6 the shared
+  copy for every consumer that accepted it, so `debug` now collapses
+  to a single 4.4.3 and the nested 4.3.6 + `ms` copies under
+  `@typescript-eslint/*`, `nx`, `tuf-js`, `vite-plugin-dts` and
+  friends disappear.
+
+  Verification
+  ------------
+
+  - Pre-commit end-to-end with the upgraded hook: a deliberately
+    unformatted staged `packages/core/src/lint-staged.fixture.ts`
+    (`export const testFixture={a:1,b:2};`) was run through
+    `git hook run pre-commit`; lint-staged backed up the index, ran
+    `eslint --fix` and `prettier --write`, re-staged the formatted
+    result (`export const testFixture = {a: 1, b: 2};`), cleaned up
+    and left no stash behind. The fixture was removed afterwards.
+  - The simplified console output from 17.1.0 (which removed
+    `listr2`) is visible: "Backing up original state…" ->
+    "Done backing up original state (hash)!", then the per-glob task
+    listing and "Done running tasks for staged files!".
+  - Unaffected by the dev-tooling-only change: `npx lerna run build`
+    (6 projects), `timeout 60s npm run core:test` (20 files / 216
+    tests), `timeout 60s npm run 2d:test` (10 files / 54 tests),
+    `npm run e2e:test -- run`, `npx eslint "**/*.ts?(x)"` and
+    `npm run prettier:fix` (no reflows) all pass.
+  - `workspace/motion-canvas/dependency-tree.md` was regenerated:
+    lint-staged@17.5.1 is auto-marked at latest and the `debug`
+    unification to 4.4.3 is visible throughout the full tree.
+
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
