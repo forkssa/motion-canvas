@@ -133,7 +133,13 @@ pin and the root `engines` floor (`>=24.20.0`).
 
 ## Conventions
 
-- Conventional Commits enforced by commitlint + Husky. Scope must be one of:
+- Conventional Commits enforced by commitlint + Husky (root devDep `^9.1.7`).
+  `prepare` must stay the bare `husky` command — `husky install` is deprecated
+  since v9 and prints a warning on every install. Hooks: `.husky/commit-msg`
+  (`npx --no -- commitlint --edit $1`) and `.husky/pre-commit`
+  (`npx lint-staged`), wired via `core.hooksPath=.husky/_`; never add the legacy
+  `#!/usr/bin/env sh` shebang or the `.husky.sh` source line to a hook file
+  (husky 9.1.2+ warns they will fail in v10). Scope must be one of:
   `2d, core, create, docs, e2e, examples, ffmpeg, legacy, player, ui, vite-plugin`.
 - ESLint extras that bite: `explicit-member-accessibility` (always write
   `public/private`), `grouped-accessor-pairs: getBeforeSet`, `eqeqeq` (except
