@@ -14,7 +14,7 @@ export default function FunctionItem({
     ...(reflection.signatures ?? []),
     reflection.setSignature,
     reflection.getSignature,
-    reflection.indexSignature,
+    ...(reflection.indexSignatures ?? []),
   ].filter(item => !!item);
 
   return (

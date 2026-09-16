@@ -16,7 +16,7 @@ export default function PredicateType({
     <>
       <Token>{type.name} </Token>
       <Token type="keyword">is </Token>
-      <Type type={type.targetType} />
+      {type.targetType && <Type type={type.targetType} />}
     </>
   );
 }

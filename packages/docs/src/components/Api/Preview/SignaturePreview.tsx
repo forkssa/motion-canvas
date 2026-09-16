@@ -64,9 +64,9 @@ export default function SignaturePreview({
       ) : (
         <Token type="function">{reflection.name}</Token>
       )}
-      {!!reflection.typeParameter?.length && (
+      {!!reflection.typeParameters?.length && (
         <TokenList type={ListType.Angle}>
-          {reflection.typeParameter.map(type => (
+          {reflection.typeParameters.map(type => (
             <TypeParameterPreview key={type.id} reflection={find(type)} />
           ))}
         </TokenList>

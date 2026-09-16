@@ -7,6 +7,6 @@
     "lightningcss": "^1.33.0",
     "marked": "^18.0.13",
     "sass": "^1.104.1",
-    "ts-patch": "^3.0.2"
+    "ts-patch": "^3.3.0"
   }
 }

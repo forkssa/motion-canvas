@@ -45,7 +45,7 @@ export default function Signatures({
         ))}
       </Container>
       <Comment comment={signature.comment} />
-      <TypeParameters parameters={signature.typeParameter}></TypeParameters>
+      <TypeParameters parameters={signature.typeParameters}></TypeParameters>
       <Parameters parameters={signature.parameters}></Parameters>
     </>
   );

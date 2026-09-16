@@ -10,7 +10,7 @@ export default function FunctionPreview({
     reflection.signatures?.[0] ??
     reflection.getSignature ??
     reflection.setSignature ??
-    reflection.indexSignature;
+    reflection.indexSignatures?.[0];
 
   return <SignaturePreview reflection={signature} />;
 }

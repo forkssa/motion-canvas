@@ -411,6 +411,32 @@ saved with older versions still deserialize correctly.
   `timeout 60s npm run 2d:test` (10 files / 54 tests), e2e, eslint and
   prettier.
 
+* upgrade the `tspc` toolchain to `typescript@~5.8.3` + `ts-patch@^3.3.0`
+
+  `build-lib` runs `tspc` (ts-patch's patched `tsc`), whose 3.0.2 release
+  was the reason the root TypeScript stayed on `~5.4.2` (it could not slice
+  TS ≥5.5). With `ts-patch@3.3.0` the root TypeScript moves to `~5.8.3` and
+  `tspc -p src/lib/tsconfig.build.json` passes. The
+  `markdown-literals` transformer is unchanged.
+
+  TS 5.8.3 also re-sorts the barrel `index.ts` re-exports
+  case-insensitively via `prettier-plugin-organize-imports`; the affected
+  `2d` barrels are `src/lib/{code,components,curves,scenes}/index.ts` and
+  `src/editor/tree/index.ts` (see the root CHANGELOG).
+
+  Verified: `npm run 2d:build` (`tspc` lib + Rolldown editor),
+  `npx lerna run build` (6 projects), `timeout 60s npm run 2d:test` (10
+  files / 54 tests), `npm run e2e:test -- run`,
+  `npx eslint "**/*.{ts,tsx,mts}"` and `npm run prettier`.
+
+* drop the stale `@param plus` TSDoc from `patienceDiff`
+
+  `src/lib/code/diff.ts` documents a `plus` parameter that the function no
+  longer takes; typedoc 0.28 reports it as
+  `The signature code.patienceDiff has an @param with name "plus", which
+  was not used`. The `@param` (and the sentence describing the parameter) is
+  removed, which clears the warning from the docs build.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 **Note:** Version bump only for package @motion-canvas/2d

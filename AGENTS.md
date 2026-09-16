@@ -14,7 +14,9 @@ on `vitest@^5.0.1` (`core`, `2d`, `e2e`), whose `vite` peer is
 `@preact/preset-vite` is `^2.10.6` (first line with a Vite 8-compatible peer
 range). Library bundles (`core`/`2d` `dist`, `2d/editor`) are built with the
 root `rolldown@^1.2.9` (the same engine Vite 8 uses); the Rollup toolchain and
-its `@rollup/plugin-*` packages were removed.
+its `@rollup/plugin-*` packages were removed. TypeScript is the root
+`typescript@~5.8.3`, driving the `core`/`2d` `tspc` builds through
+`ts-patch@^3.3.0`; the docs API pipeline uses `typedoc@^0.28.20`.
 
 ## Setup & build order
 
@@ -41,14 +43,15 @@ its `@rollup/plugin-*` packages were removed.
   `npx lerna run build && npx lerna run bundle && npm run docs:build` with
   `NODE_OPTIONS=--max-old-space-size=8192`.
 - Docs toolchain: Docusaurus 3.10.2 + React 19. React copies are pinned
-  repo-wide via root `package.json` `overrides` — don't remove them. `typedoc`
-  (0.25.x) is a root devDep on purpose: typedoc must resolve the root TypeScript
-  (0.25.x only supports ≤5.4.x). The root `typescript` is pinned to `~5.4.2` for
-  the same reason — `ts-patch@3.0.2` (`tspc`, the patched `tsc` driving the
-  `core`/`2d` builds) can't slice TS ≥5.5 — so the range must not be widened
-  until both move. The docs workspace keeps a nested `typescript@~6.0.2` used by
-  its `typecheck` script only; the `api-extractor` under `vite-plugin-dts` ships
-  its own private `typescript@5.9` (harmless, isolated).
+  repo-wide via root `package.json` `overrides` — don't remove them. The root
+  `typescript` is `~5.8.3` and every workspace uses it (the old nested
+  `packages/docs` copy is gone); `ts-patch@^3.3.0` (`tspc`, the patched `tsc`
+  driving the `core`/`2d` builds) supports it. `typedoc@^0.28.20` is a root
+  devDep and resolves the root TS; it is ESM-only, so `packages/docs/typedoc.js`
+  loads it with a dynamic `import()` (see the `docs` boundary note). The
+  `api-extractor` under `vite-plugin-dts` ships its own private
+  `typescript@5.9`, now the only nested TypeScript in the tree (harmless,
+  isolated).
 
 ## Package boundaries
 
@@ -188,7 +191,16 @@ its `@rollup/plugin-*` packages were removed.
   must register every type discriminator typedoc can emit — an unregistered kind
   throws `Missing component for type` during static rendering
   (`namedTupleMember`, for rest parameters, is handled by
-  `NamedTupleMemberType`).
+  `NamedTupleMemberType`). typedoc is 0.28 (ESM-only): `typedoc.js` imports it
+  dynamically, the 2d project must use `src/lib/tsconfig.build.json` (the plain
+  tsconfig's inherited `outDir` triggers `TS18003`), signature reflections
+  inherit their parent's anchor (no `drawOverlay-drawOverlay` doubling), and the
+  `ApiItem` TOC filters groups with the same `matchFilters` as the content so
+  anchors exist in the rendered page, and hidden (private/protected) members get
+  a page-level `href` (no anchor) so cross-project `overwrites` /
+  `inheritedFrom` links never target a filtered-out anchor. `tsconfig.json`'s
+  `paths.typedoc` must point at `typedoc/dist/types/index` (it also stops the
+  local `typedoc.js` from shadowing the bare `typedoc` specifier via `baseUrl`).
 - `e2e` / `examples` / `template`: private, not published. The `code-block`
   example project was removed in 4.0.0; adding a new example requires both a
   `src/*.ts` project file (plus its `scenes/*` entry and `.meta`) and a line in
@@ -242,7 +254,7 @@ its `@rollup/plugin-*` packages were removed.
   `rimraf` runtime dep (uses native `fs.rmSync`) and adds `runtimeHooksPath` /
   `maxChildProcessBufferSizeInBytes` plus base64 / TypedArray input support.
 - UI types: `npm run ui:type`.
-- Docs types: `npm run typecheck -w packages/docs` (docs-nested TS ~6.0.2).
+- Docs types: `npm run typecheck -w packages/docs`.
 - Docs build: `npm run docs:build` (expensive; needs a prior
   `npx lerna run build && npx lerna run bundle`).
 
@@ -268,12 +280,12 @@ its `@rollup/plugin-*` packages were removed.
 - Prettier (root devDep, `^3.9.6`, repo-wide check is clean): `singleQuote`,
   `bracketSpacing: false`, 80 col, `organize-imports` plugin (`^4.3.0`)
   auto-sorts imports — don't hand-order them. The sort order follows the root
-  TypeScript version (5.4.x sorts case-sensitively: `DetailedError` before
-  `beginSlide`; TS ≥5.9 flips to case-insensitive and would flag every barrel
-  `index.ts`), which is another reason `typescript` stays pinned to `~5.4.2`.
-  3.4+ normalizes TS modifier order (`declare public readonly`, never
-  `public declare`) and 3.5+ collapses unions that fit the print width to one
-  line — write new code in the post-3.9 style above.
+  TypeScript version; TS 5.8.3 sorts case-insensitively, so barrels read
+  `beginSlide` before `DetailedError` (the 5.4.2 → 5.8.3 upgrade re-sorted the
+  13 barrel `index.ts` files once; keep the new order). 3.4+ normalizes TS
+  modifier order (`declare public readonly`, never `public declare`) and 3.5+
+  collapses unions that fit the print width to one line — write new code in the
+  post-3.9 style above.
 - Ignored by lint/style: `**/*.js`, `**/*.d.ts`, `packages/template`,
   `packages/create/template-*`.
 - Never edit generated output: `packages/*/lib|dist|build`,

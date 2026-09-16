@@ -424,6 +424,25 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   the bundle, `timeout 60s npm run core:test` (20 files / 216 tests),
   `npm run e2e:test -- run`, eslint and prettier.
 
+* upgrade the `tspc` toolchain to `typescript@~5.8.3` + `ts-patch@^3.3.0`
+
+  `core` builds through `tspc` (ts-patch's patched `tsc`), which used to
+  pin the root TypeScript to `~5.4.2` because `ts-patch@3.0.2` could not
+  slice TS ≥5.5. `ts-patch@3.3.0` restores support for TS 5.7+, so the
+  root `typescript` and `packages/internal`'s `ts-patch` move together and
+  `tspc -p tsconfig.build.json` passes against TS 5.8.3. The custom
+  `@motion-canvas/internal/transformers/markdown-literals.js` transformer
+  is unchanged and keeps running under the new compiler.
+
+  As a side effect of TS 5.8.3, `prettier-plugin-organize-imports` sorts
+  case-insensitively and `src/utils/index.ts` (plus the repo's other barrel
+  `index.ts` files) is re-sorted; see the root CHANGELOG.
+
+  Verified: `npm run core:build` (`tspc`), `npx lerna run build` (6
+  projects), `timeout 60s npm run core:test` (20 files / 216 tests),
+  `npm run e2e:test -- run`, `npx eslint "**/*.{ts,tsx,mts}"` and
+  `npm run prettier`.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 

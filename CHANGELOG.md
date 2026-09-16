@@ -2593,6 +2593,119 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
   single `24.13.5`; the lock is stable across `npm install` / `npm dedupe`
   and `npm install-scripts ls` is clean.
 
+* upgrade `typescript` to `~5.8.3`, `ts-patch` to `^3.3.0` and `typedoc`
+  to `^0.28.20`
+
+  The toolchain finally moves off the `typescript@~5.4.2` floor, which only
+  existed because `ts-patch@3.0.2` could not slice TS ≥5.5 and
+  `typedoc@0.25` only supported ≤5.4.x. Both ceilings are gone: `ts-patch`
+  3.x supports TS 5.7+, and `typedoc@0.28` supports TS 5.0–6.0.
+
+  Dependency changes:
+
+  - package.json: `typescript` `~5.4.2` -> `~5.8.3`, `typedoc`
+    `^0.25.13` -> `^0.28.20`.
+  - packages/docs: `typescript` `~6.0.2` -> `~5.8.3`; the docs workspace no
+    longer needs a private TypeScript copy.
+  - packages/internal: `ts-patch` `^3.0.2` -> `^3.3.0` (the driver behind
+    `tspc` for `core` and `2d`).
+  - packages/create/template-2d-ts: `typescript` `^5.2.2` -> `~5.8.3`.
+  - The only remaining nested TypeScript is `@microsoft/api-extractor`'s
+    private `5.9.3` (used by `vite-plugin-dts` under CI; isolated and
+    unchanged). Root `overrides.typedoc.typescript: "$typescript"` keeps
+    typedoc on the root TS 5.8.3.
+
+  Why `~5.8.3` rather than `^5.8.3`: the caret would resolve to 5.9.3 (the
+  latest 5.x), which the repo previously found breaks `ts-patch`'s slicing
+  and flips `organizeImports` to case-insensitive. As it turns out, TS 5.8.3
+  already flips the import sort for this repo, so the upgrade re-sorts all
+  13 barrel `index.ts` files to the case-insensitive order
+  (`beginSlide` before `DetailedError`, `deprecate` before
+  `ExperimentalError`, …); `npm run prettier:fix` produced the new order and
+  the repo-wide `prettier --check` is clean. `~5.8.3` still avoids the 5.9
+  line and keeps the behavior on the known 5.8 semantics.
+
+  Docs TypeScript: `packages/docs/tsconfig.json` had
+  `ignoreDeprecations: "6.0"`, which is invalid under TS 5.8
+  (`TS5103: Invalid value for '--ignoreDeprecations'`); it is now `"5.0"`.
+  With the docs workspace on the root TS, `npm run typecheck -w
+  packages/docs` passes.
+
+  typedoc 0.25.13 -> 0.28.20 (the largest part of this change; typedoc
+  0.27+ is ESM-only, and 0.28 removed several APIs):
+
+  - packages/docs/typedoc.js: the top-level `require('typedoc')` is replaced
+    by a dynamic `td = await import('typedoc')` inside `loadContent`, which
+    keeps the Docusaurus plugin CommonJS while consuming the ESM package.
+    The serializer components are unchanged in shape
+    (`addSerializer({priority, supports, toObject})`), except
+    `DeclarationReflection.indexSignature` -> `indexSignatures` (renamed in
+    typedoc 0.26).
+  - The 2d typedoc project now points at `src/lib/tsconfig.build.json`
+    instead of `src/lib/tsconfig.json`: 0.28 validates entry points against
+    the tsconfig, and the plain `2d` tsconfig's inherited `outDir` (the
+    package root) makes TypeScript's implicit outDir exclusion swallow every
+    input (`TS18003`).
+  - Anchor generation: typedoc 0.27 renamed constructor signatures to the
+    parent class name and 0.28 resolves more links to signature
+    reflections. Signature reflections now inherit their parent's anchor
+    instead of producing doubled anchors (`drawOverlay-drawOverlay`,
+    `constructor-Node`), so links land on the rendered member heading;
+    parameter anchors stay `<member>-<param>`.
+  - packages/docs/tsconfig.json: the `paths.typedoc` workaround that used to
+    point at `typedoc/dist/index` (which no longer exists) now points at
+    `typedoc/dist/types/index`, both to resolve the 0.28 declarations and to
+    stop the local `typedoc.js` from shadowing the bare `typedoc` specifier
+    via the docs `baseUrl`.
+  - Api renderers updated for the 0.28 JSON output:
+    `SignatureReflection.typeParameter` -> `typeParameters`
+    (`SignaturePreview`, `Signatures`), `indexSignature` ->
+    `indexSignatures` (`FunctionItem`, `FunctionPreview`),
+    `ReflectionKind.Document` added to the local enum, and optional type
+    fields guarded (`TypeAliasPreview.type`, `PredicateType.targetType`,
+    `MappedType.parameterType`/`templateType`).
+  - `ApiItem`'s TOC is now built from the filter-matched groups (same
+    `matchFilters` as the rendered content) instead of the raw unfiltered
+    `group.children`; previously the SSR TOC advertised anchors for
+    protected/inherited members that the content hides, producing ~59
+    broken-anchor warnings.
+  - Hidden (private/protected) members now serialize a page-level `href`
+    (no anchor) in `typedoc.js`, so cross-project `overwrites` /
+    `inheritedFrom` links (e.g. `Scene2D.draw` -> `GeneratorScene.draw`,
+    which is `protected abstract` and hidden by the default filters) land on
+    the page instead of a non-existent anchor. Together these bring the docs
+    build to zero broken anchors.
+  - `packages/2d/src/lib/code/diff.ts` drops the stale `@param plus` TSDoc on
+    `patienceDiff` (the parameter no longer exists), which typedoc 0.28
+    reported as `The signature code.patienceDiff has an @param with name
+    "plus", which was not used`.
+  - The hardcoded blog link to the old doubled anchor in
+    `blog/2023-12-31-version-3.12.0.mdx` is updated to
+    `/api/core/transitions#useTransition-previousOnTop`.
+
+  Verification:
+
+  - `npx lerna run build` (6 projects, incl. the `tspc` core/2d builds with
+    TS 5.8.3 + ts-patch 3.3.0).
+  - `timeout 60s npm run core:test` (20 files / 216 tests),
+    `timeout 60s npm run 2d:test` (10 files / 54 tests),
+    `npm run e2e:test -- run`.
+  - `npm run examples:build`, `npm run template:build`,
+    `npm run player:build`, `npm run ui:build`.
+  - `timeout 60s npm run ui:type` (`Found 0 errors`),
+    `npm run typecheck -w packages/docs`.
+  - `NODE_OPTIONS=--max-old-space-size=5000 npm run docs:build` succeeds
+    with zero broken anchors and no typedoc validation warnings (down from
+    ~59 broken anchors and the `patienceDiff` `@param plus` warning).
+  - `npx eslint "**/*.{ts,tsx,mts}"` and `npm run prettier` are clean; the
+    lock is stable across `npm install` / `npm dedupe` and
+    `npm install-scripts ls` is clean.
+
+  Other changes: root + `core`/`2d` CHANGELOG entries; AGENTS.md updated
+  (root TS floor, ts-patch/typedoc versions, typedoc 0.28 ESM/anchor notes,
+  docs TS no longer nested, import-sort behavior); the wrapper's
+  dependency tree regenerated separately.
+
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
