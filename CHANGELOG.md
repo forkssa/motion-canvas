@@ -2706,6 +2706,54 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
   docs TS no longer nested, import-sort behavior); the wrapper's
   dependency tree regenerated separately.
 
+* run `npm audit fix` (35 -> 28 advisories)
+
+  `npm audit fix` (the non-breaking variant) was run from the monorepo
+  root. It clears 7 advisories by bumping transitive dependencies, almost
+  all of them in the Docusaurus 3.10.2 / Mermaid docs subtree:
+
+  - `lodash` `4.17.21` -> `4.18.1` and `lodash-es` `4.17.23` ->
+    `4.18.1`.
+  - `serialize-javascript` `6.0.1` -> `6.0.2` and
+    `terser-webpack-plugin` `5.3.9` -> `5.6.1` (through
+    `@docusaurus/bundler`).
+  - the Mermaid `d3` chain: `d3-delaunay` `6.0.2` -> `6.0.4`,
+    `d3-format` `3.1.0` -> `3.1.2`, `d3-geo` `3.1.0` -> `3.1.1`,
+    `d3-scale-chromatic` `3.0.0` -> `3.1.0`, `delaunator` `5.0.0` ->
+    `5.1.0`, `internmap` `1.0.1` -> `2.0.3`, `robust-predicates`
+    `3.0.1` -> `3.0.3`.
+  - `@antfu/install-pkg` `2.0.1` -> `2.1.0` and
+    `@sinclair/typebox` `0.27.8` -> `0.27.12`.
+
+  The same install re-dedupes/relocates the Docusaurus/Mermaid
+  sub-dependency graph (`mermaid` `11.17.2`, `marked` `18.0.13`,
+  `dompurify`, `dagre-d3-es`, `chevrotain`, `elkjs`, `uuid@8`, the
+  `cssnano` / `postcss-*` set, `css-minimizer-webpack-plugin`,
+  `terser-webpack-plugin`), which is docs-only. Only
+  `package-lock.json` changes (1525 insertions / 1320 deletions); a
+  second `npm audit fix` is a no-op.
+
+  The remaining 28 advisories are not resolved here:
+
+  - `js-yaml` and `pacote` only have a fix through
+    `npm audit fix --force`, which would downgrade `lerna` to `6.4.1`.
+  - `serialize-javascript` and `uuid` (through `sockjs` /
+    `webpack-dev-server` in Docusaurus) have no fix available.
+  - `brace-expansion` (nested under `serve-handler` -> `minimatch@3`);
+    the patched `1.1.18+` exists but npm will not bump the nested copy
+    without a root `overrides` entry.
+  - `smol-toml` is pinned exactly at `1.6.1` by `nx@23.2.1`, so the
+    patched `1.7.1+` is outside the pin.
+
+  Verification: `npx lerna run build` (6 projects),
+  `timeout 60s npm run core:test` (20 files / 216 tests),
+  `timeout 60s npm run 2d:test` (10 files / 54 tests),
+  `npm run e2e:test -- run`, `npm run typecheck -w packages/docs`, and
+  `NODE_OPTIONS=--max-old-space-size=5000 npm run docs:build` (0 broken
+  anchors, 0 errors) all pass; the lock is stable across `npm install`
+  and `npm ls --all` keeps only the pre-existing `@noble/hashes` invalid
+  marker.
+
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
