@@ -52,7 +52,7 @@
     "lint-staged": "^17.5.1",
     "prettier": "^3.9.6",
     "prettier-plugin-organize-imports": "^4.3.0",
-    "rollup": "^3.29.4",
+    "rolldown": "^1.2.9",
     "typedoc": "^0.25.13",
     "typescript": "~5.4.2",
     "vite": "^8.3.0"

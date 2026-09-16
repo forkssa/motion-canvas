@@ -8,7 +8,8 @@ export default function NamedTupleMemberType({
 }) {
   return (
     <>
-      {type.name}: <Type type={type.element} />
+      {type.name}
+      {type.isOptional ? '?' : ''}: <Type type={type.element} />
     </>
   );
 }

@@ -402,6 +402,28 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   `npm run e2e:test -- run`; `npx eslint "**/*.ts?(x)"` and
   `npm run prettier` are clean.
 
+* build the docs bundle with Rolldown instead of Rollup
+
+  `npm run bundle` now runs `rolldown -c rolldown.config.mjs` (the root
+  CHANGELOG has the full migration), replacing `rollup` +
+  `@rollup/plugin-commonjs` + `@rollup/plugin-node-resolve` +
+  `@rollup/plugin-terser` + the
+  `@motion-canvas/internal/rollup/typescript` wrapper. Rolldown handles
+  the CJS `chroma-js` graph, module resolution, TS (legacy decorators,
+  with Oxc's helpers inlined) and minification natively. The
+  `markdownLiterals` TS transformer is replaced for the bundle step by
+  `internal/rolldown/markdown-literals.mjs`, which turns the nine `.md`
+  log imports and the `// language=markdown` literal in
+  `src/utils/useThread.ts` into HTML (the `tspc` declaration builds keep
+  using `internal/transformers/markdown-literals.js`).
+
+  `dist/index.js` is 148.8 kB (was ~151.5 kB), emits `dist/index.js.map`
+  and keeps the same named exports (the docs importmap resolves them).
+  Verified with `npm run core:bundle` (clean, no `SOURCEMAP_BROKEN`
+  warnings), `npx lerna run bundle`, the `docs:build` run that consumes
+  the bundle, `timeout 60s npm run core:test` (20 files / 216 tests),
+  `npm run e2e:test -- run`, eslint and prettier.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 

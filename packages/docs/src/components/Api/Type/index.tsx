@@ -7,6 +7,7 @@ import IntersectionType from '@site/src/components/Api/Type/IntersectionType';
 import IntrinsicType from '@site/src/components/Api/Type/IntrinsicType';
 import LiteralType from '@site/src/components/Api/Type/LiteralType';
 import MappedType from '@site/src/components/Api/Type/MappedType';
+import NamedTupleMemberType from '@site/src/components/Api/Type/NamedTupleMemberType';
 import PredicateType from '@site/src/components/Api/Type/PredicateType';
 import QueryType from '@site/src/components/Api/Type/QueryType';
 import ReferenceType from '@site/src/components/Api/Type/ReferenceType';
@@ -55,6 +56,8 @@ export default function CodeType(props: CodeTypeProps) {
         return PredicateType;
       case 'tuple':
         return TupleType;
+      case 'namedTupleMember':
+        return NamedTupleMemberType;
       case 'array':
         return ArrayType;
       case 'intersection':

@@ -383,6 +383,34 @@ saved with older versions still deserialize correctly.
   lib + rollup editor); `npm run e2e:test -- run`;
   `npx eslint "**/*.ts?(x)"` and `npm run prettier` are clean.
 
+* build the docs and editor bundles with Rolldown instead of Rollup
+
+  `npm run bundle` now runs `rolldown -c rolldown.config.mjs` and
+  `build-editor` runs `rolldown -c rolldown.editor.config.mjs` (see the
+  root CHANGELOG for the full migration). `rollup`,
+  `@rollup/plugin-node-resolve`, `@rollup/plugin-terser` and the internal
+  `@rollup/plugin-typescript` wrapper are gone. `@motion-canvas/core`
+  stays external in the lib bundle via
+  `external: [/^@motion-canvas\/core/]`, and the `.md` logs are inlined by
+  `internal/rolldown/markdown-literals.mjs`.
+
+  The editor build's Sass/CSS-modules pipeline is now
+  `internal/rolldown/css.mjs` (Sass modern API + Lightning CSS) instead of
+  `rollup-plugin-postcss`. It intercepts CSS imports as virtual modules
+  (Rolldown 1.x refuses to bundle CSS modules directly), emits
+  `editor/index.css` and prepends `import './index.css'` to the entry, so
+  the published layout is unchanged (`index.js` + `index.css`). CSS-module
+  class names change from `postcss-modules`' `index-module_root__omEd0` to
+  Lightning CSS's `[hash]_[local]` (`INfdXq_root`) — internal only; the
+  repo's `ui`/`template` configs alias `@motion-canvas/2d/editor` to
+  source, so nothing in-repo consumes the built JS.
+
+  Verified: `npm run 2d:build` (`tspc` lib + Rolldown editor,
+  `editor/index.js` 22.7 kB + `editor/index.css`), `npm run 2d:bundle`,
+  `npx lerna run build` / `bundle`, `docs:build`,
+  `timeout 60s npm run 2d:test` (10 files / 54 tests), e2e, eslint and
+  prettier.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 **Note:** Version bump only for package @motion-canvas/2d

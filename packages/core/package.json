@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "tspc -p tsconfig.build.json -w",
     "build": "tspc -p tsconfig.build.json",
-    "bundle": "rollup -c rollup.config.mjs",
+    "bundle": "rolldown -c rolldown.config.mjs",
     "test": "vitest"
   },
   "sideEffects": false,

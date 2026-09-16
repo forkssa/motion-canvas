@@ -9,7 +9,9 @@ Vite workspace (`ui`, `player`, `examples`, `template`, `e2e`); unit tests run
 on `vitest@^5.0.1` (`core`, `2d`, `e2e`), whose `vite` peer is
 `^6.4.0 || ^7 || ^8` and is satisfied by the hoisted root copy.
 `@preact/preset-vite` is `^2.10.6` (first line with a Vite 8-compatible peer
-range).
+range). Library bundles (`core`/`2d` `dist`, `2d/editor`) are built with the
+root `rolldown@^1.2.9` (the same engine Vite 8 uses); the Rollup toolchain and
+its `@rollup/plugin-*` packages were removed.
 
 ## Setup & build order
 
@@ -37,34 +39,36 @@ range).
   `NODE_OPTIONS=--max-old-space-size=8192`.
 - Docs toolchain: Docusaurus 3.10.2 + React 19. React copies are pinned
   repo-wide via root `package.json` `overrides` — don't remove them. `typedoc`
-  (0.25.x) and `rollup` are root devDeps on purpose: typedoc must resolve the
-  root TypeScript (0.25.x only supports ≤5.4.x). The root `typescript` is pinned
-  to `~5.4.2` for the same reason — `ts-patch@3.0.2` (`tspc`, the patched `tsc`
-  driving the `core`/`2d` builds) can't slice TS ≥5.5 — so the range must not be
-  widened until both move. The docs workspace keeps a nested `typescript@~6.0.2`
-  used by its `typecheck` script only; the `api-extractor` under
-  `vite-plugin-dts` ships its own private `typescript@5.9` (harmless, isolated).
+  (0.25.x) is a root devDep on purpose: typedoc must resolve the root TypeScript
+  (0.25.x only supports ≤5.4.x). The root `typescript` is pinned to `~5.4.2` for
+  the same reason — `ts-patch@3.0.2` (`tspc`, the patched `tsc` driving the
+  `core`/`2d` builds) can't slice TS ≥5.5 — so the range must not be widened
+  until both move. The docs workspace keeps a nested `typescript@~6.0.2` used by
+  its `typecheck` script only; the `api-extractor` under `vite-plugin-dts` ships
+  its own private `typescript@5.9` (harmless, isolated).
 
 ## Package boundaries
 
 - `core`: animation runtime (signals, flow, scenes, threading). Build:
-  `tspc -p tsconfig.build.json`; bundle: `rollup -c rollup.config.mjs`. Colors
-  wrap chroma-js (`chroma-js@^3.2.0` + `@types/chroma-js@^3.1.2`; previously
-  exact-pinned to `2.4.2`/`2.4.4` to dodge the broken `2.5.0-*` pre-releases).
-  `@types/chroma-js` 3.x is ESM-style (`export default chroma`), types no named
-  value exports, and its internal `chroma` namespace cannot be module-augmented,
-  so `src/types/Color.ts` uses the default import, declares a local
-  `interface Color extends ChromaColor, Type, WebGLConvertible` paired with
-  `export const Color: ColorStatic`, and redeclares chroma's chainable methods
-  (parameters via `Parameters<ChromaColor[...]>`) to return the extended
+  `tspc -p tsconfig.build.json`; bundle: `rolldown -c rolldown.config.mjs`.
+  Colors wrap chroma-js (`chroma-js@^3.2.0` + `@types/chroma-js@^3.1.2`;
+  previously exact-pinned to `2.4.2`/`2.4.4` to dodge the broken `2.5.0-*`
+  pre-releases). `@types/chroma-js` 3.x is ESM-style (`export default chroma`),
+  types no named value exports, and its internal `chroma` namespace cannot be
+  module-augmented, so `src/types/Color.ts` uses the default import, declares a
+  local `interface Color extends ChromaColor, Type, WebGLConvertible` paired
+  with `export const Color: ColorStatic`, and redeclares chroma's chainable
+  methods (parameters via `Parameters<ChromaColor[...]>`) to return the extended
   `Color`. Keep that interface/const pair as-is: exporting an aliased interface
   instead makes declaration emit fail downstream (TS4058 in `2d`). `Color.css()`
   / `serialize()` emit modern space-separated CSS (`rgb(0 0 0)`), which is what
   lands in meta files and the UI color input now.
 - `2d`: renderer + editor panels. Split build: `build-lib`
   (`tspc -p src/lib/tsconfig.build.json`) + `build-editor`
-  (`rollup -c rollup.editor.mjs`). Unit tests cover only `src/lib/**/*.test.*`.
-  The code editor runs CodeMirror (`@codemirror/language@^6.12.4`, shared
+  (`rolldown -c rolldown.editor.config.mjs`; Sass + CSS modules are compiled by
+  `@motion-canvas/internal/rolldown/css.mjs` and emitted as `editor/index.css`,
+  which the entry imports). Unit tests cover only `src/lib/**/*.test.*`. The
+  code editor runs CodeMirror (`@codemirror/language@^6.12.4`, shared
   `@lezer/common@^1.5.0`, `@lezer/highlight@^1.2.3`); the docs fiddle uses
   `@codemirror/lang-javascript@^6.2.5` over `@lezer/javascript@^1.5.4`. The
   deprecated `CodeBlock` component and its `code-fns` dependency were removed in
@@ -97,16 +101,16 @@ range).
   named value imports no longer type-check. Class names come from `clsx@^2.1.1`
   (default import; a single workspace-hoisted copy shared with `2d`/`docs` —
   `2d` uses the named `{clsx}` import, also valid in 2.x). `sass@^1.104.1` and
-  `highlight.js@^11.12.0` are devDeps. Vite 8 drives Dart Sass through the
-  modern API, so the `silenceDeprecations: ['legacy-js-api']` workaround was
-  dropped in the Vite 8 upgrade (only `packages/2d/rollup.editor.mjs` keeps it —
-  `rollup-plugin-postcss` still calls the legacy API). The lib build pins
-  `build.lib.cssFileName: 'style'`: Vite 6+ otherwise names the CSS output after
-  `build.lib.fileName` (`main.css`), while `editorPlugin` injects
-  `dist/style.css` and `packages/docs/editor.js` serves `/editor/style.css`.
-  `vite.showcase.ts` pins the same name. Its `vite.config.ts` uses
-  `build.rolldownOptions` (the Vite 8 rename) and the package is
-  `"type": "module"`, so it loads as ESM.
+  `highlight.js@^11.12.0` are devDeps. No source or config uses the Sass legacy
+  API any more: Vite 8 and the `rolldown` editor build
+  (`internal/rolldown/ css.mjs`, via `sass.compileStringAsync`) both drive the
+  modern API, so the old `silenceDeprecations: ['legacy-js-api']` workaround is
+  gone everywhere. The lib build pins `build.lib.cssFileName: 'style'`: Vite 6+
+  otherwise names the CSS output after `build.lib.fileName` (`main.css`), while
+  `editorPlugin` injects `dist/style.css` and `packages/docs/editor.js` serves
+  `/editor/style.css`. `vite.showcase.ts` pins the same name. Its
+  `vite.config.ts` uses `build.rolldownOptions` (the Vite 8 rename) and the
+  package is `"type": "module"`, so it loads as ESM.
 - `vite-plugin`: plain `tsc` build, peer `vite ^8.0.0`. Its `skipLibCheck` is
   not accidental — keep it. The package stays CommonJS (no `"type": "module"`)
   but its tsconfig uses `module`/`moduleResolution` `node16` and every `vite`
@@ -158,8 +162,11 @@ range).
   and `build.rollupOptions` became `build.rolldownOptions`. The package is
   `"type": "module"`, so `vite.config.ts` already loads as ESM.
 - `internal`: private build helpers only — includes `vite/markdown-literals`
-  plugin required by `core`/`2d` vitest configs. `common/marked.js` (shared by
-  the `markdown-literals` TS transformer and Vite plugin) runs
+  plugin required by `core`/`2d` vitest configs, and the `rolldown/` plugins
+  used by the `core`/`2d` `bundle` builds and the `2d` editor build
+  (`markdown-literals.mjs` for `.md` imports + `// language=markdown` literals,
+  `css.mjs` for Sass/CSS-modules extraction). `common/marked.js` (shared by the
+  `markdown-literals` TS transformer, Vite plugin and Rolldown plugin) runs
   `marked@^18.0.13` + `highlight.js@^11.12.0`; marked is ESM-only since v16 and
   is loaded from this CommonJS file through Node's `require(esm)` support, and
   its renderer overrides must use the v13+ token objects (`link({href, tokens})`
@@ -170,7 +177,12 @@ range).
   production builds. Site components use `clsx@^2.1.1` via the default import
   (the site was the last `^1.2.0` consumer before the repo-wide 2.x dedupe). The
   deprecated-`CodeBlock` doc page (`docs/components/code-block.mdx`) and the
-  2.4.0/2.6.0 blog posts (which linked it) were removed in 4.0.0.
+  2.4.0/2.6.0 blog posts (which linked it) were removed in 4.0.0, so remaining
+  references to `/docs/code-block` must stay unlinked. `src/components/Api/Type`
+  must register every type discriminator typedoc can emit — an unregistered kind
+  throws `Missing component for type` during static rendering
+  (`namedTupleMember`, for rest parameters, is handled by
+  `NamedTupleMemberType`).
 - `e2e` / `examples` / `template`: private, not published. The `code-block`
   example project was removed in 4.0.0; adding a new example requires both a
   `src/*.ts` project file (plus its `scenes/*` entry and `.meta`) and a line in

@@ -2445,6 +2445,122 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
     and the `allowScripts` / `npm install-scripts` workflow were
     updated.
 
+* replace the Rollup bundling toolchain with Rolldown
+
+  The three remaining Rollup build configurations move to
+  `rolldown@^1.2.9` (the engine Vite 8 already bundles): the `core` and
+  `2d` `bundle` steps (single-file `dist/index.js`) and the `2d`
+  `build-editor` step (`packages/2d/editor`). All Rollup dependencies
+  leave the tree.
+
+  Dependency changes:
+
+  - package.json: root `rollup` `^3.29.4` removed; `rolldown` `^1.2.9`
+    added. `@rollup/pluginutils` remains as a transitive dependency of
+    `@preact/preset-vite` / `vite-plugin-dts`; its `rollup` peer is left
+    unsatisfied and npm does not warn about it.
+  - packages/internal: `@rollup/plugin-commonjs`,
+    `@rollup/plugin-node-resolve`, `@rollup/plugin-terser`,
+    `@rollup/plugin-typescript` and `rollup-plugin-postcss` removed;
+    `lightningcss@^1.33.0` and `sass@^1.104.1` added for the new CSS
+    plugin.
+  - package-lock.json loses 76 packages (the four plugin subtrees plus
+    `rollup-plugin-postcss`'s `cssnano` / `postcss-modules` chain).
+
+  Rolldown natively covers what the removed plugins did:
+
+  - `@rollup/plugin-commonjs` -> built-in esbuild-compatible ESM/CJS
+    interop (the `mathjax-full` CJS graph is handled without a plugin).
+  - `@rollup/plugin-node-resolve` -> the built-in `oxc-resolver`.
+  - `@rollup/plugin-terser` -> the built-in Oxc minifier
+    (`output.minify: true`).
+  - `@rollup/plugin-typescript` -> the built-in Oxc transformer (via the
+    `tsconfig` option); legacy decorators / `experimentalDecorators` are
+    supported and Oxc's runtime helpers are inlined, so
+    `@oxc-project/runtime` is not needed.
+
+  Source changes:
+
+  - `packages/core/rollup.config.mjs` -> `rolldown.config.mjs`,
+    `packages/2d/rollup.config.mjs` -> `rolldown.config.mjs`,
+    `packages/2d/rollup.editor.mjs` -> `rolldown.editor.config.mjs`; the
+    `bundle` / `build-editor` scripts invoke `rolldown -c …`.
+  - The `2d` inline `resolveId` externalizer is replaced by
+    `external: [/^@motion-canvas\/core/]`.
+  - `packages/internal/rollup/typescript.mjs` (the
+    `@rollup/plugin-typescript` wrapper that injected the markdown TS
+    transformer) is deleted.
+  - New `packages/internal/rolldown/markdown-literals.mjs` reproduces the
+    transformer's two behaviours for the bundle step: `.md` imports become
+    `export default <marked HTML>`, and a `// language=markdown` template
+    literal becomes the parsed HTML string (the single
+    `core/src/utils/useThread.ts` case). `internal/transformers/
+    markdown-literals.js` is unchanged and still drives the `tspc`
+    declaration builds.
+  - New `packages/internal/rolldown/css.mjs` replaces
+    `rollup-plugin-postcss` for the editor build. It intercepts `.css` /
+    `.scss` imports as virtual modules because Rolldown 1.x rejects
+    bundling real CSS modules (`[UNSUPPORTED_FEATURE] Bundling CSS is no
+    longer supported`), compiles Sass through the modern
+    `sass.compileStringAsync` API, runs Lightning CSS for CSS-module
+    scoping, emits `editor/index.css` and prepends `import './index.css'`
+    to the entry chunk (preserving the previous contract). With this, the
+    last `silenceDeprecations: ['legacy-js-api']` in the repository is
+    gone — both Vite 8 and the editor build use the Sass modern API.
+  - Editor CSS-module class names change from `postcss-modules`'
+    `index-module_root__omEd0` scheme to Lightning CSS's `[hash]_[local]`
+    (`INfdXq_root`); internal only, and nothing in the repo consumes
+    `packages/2d/editor`'s JS directly (`ui` aliases the source).
+
+  Pre-existing docs failures surfaced while validating `docs:build` (the
+  only consumer of the `dist` bundles) were fixed:
+
+  - the API type renderer never registered the `namedTupleMember`
+    discriminator typedoc emits for rest parameters, so static rendering
+    of `/api/core/types/Color` threw `Missing component for type:
+    namedTupleMember`. `NamedTupleMemberType` (already present but unused)
+    is wired into the `CodeType` switch and now renders `name?: type`.
+  - `docs/migration/3.0.0.mdx` still linked to the removed
+    `/docs/code-block` page; the reference is unlinked.
+
+  Verification:
+
+  - `npm run core:bundle` / `npm run 2d:bundle` are clean (no
+    `SOURCEMAP_BROKEN` or CSS warnings). `core/dist/index.js` is 148.8 kB
+    (was ~151.5 kB) and `2d/dist/index.js` 2,165 kB (was ~2,173 kB); the
+    `.md` log HTML and the parsed `useThread()` literal are present,
+    `@motion-canvas/core` stays external in the `2d` bundle, and decorator
+    helpers are inlined.
+  - `npm run 2d:build` (`tspc` lib + Rolldown editor) emits
+    `editor/index.js` (22.7 kB) + `editor/index.css`, and the entry still
+    imports the CSS.
+  - `npx lerna run build` (6 projects) and `npx lerna run bundle` (2)
+    pass.
+  - `NODE_OPTIONS=--max-old-space-size=5000 npm run docs:build` succeeds.
+  - `timeout 60s npm run core:test` (20 files / 216 tests),
+    `timeout 60s npm run 2d:test` (10 files / 54 tests),
+    `npm run e2e:test -- run`, `npm run examples:build`,
+    `npm run template:build`, `npm run ui:build`,
+    `npm run player:build`, `npx eslint "**/*.{ts,tsx,mts}"` and
+    `npm run prettier` all pass.
+  - `npm install` / `npm dedupe` are no-ops against the new lock and
+    `npm install-scripts ls` reports nothing unreviewed.
+
+  Other changes:
+
+  - AGENTS.md updated (toolchain paragraph; `core`, `2d`, `ui`,
+    `internal` and `docs` notes).
+  - workspace/motion-canvas/dependency-tree.md (wrapper repo) regenerated:
+    `rollup` and the `@rollup/plugin-*` packages are gone, `rolldown`,
+    `lightningcss` and the new `internal` deps are present.
+
+  Note on the CSS-plugin detour: `rolldown-plugin-css` was tried first,
+  but its published `0.2.12` is broken (`exports` points at
+  `dist/index.esm.js` while the tarball ships `dist/index.es.js`, and its
+  `preinstall` runs a script it does not publish), and `0.2.11`'s
+  `preinstall` rewrites the consuming project's `package.json`. The
+  in-repo plugin avoids that dependency entirely.
+
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 

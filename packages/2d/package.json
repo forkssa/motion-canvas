@@ -12,8 +12,8 @@
     "dev": "tspc -p src/lib -w",
     "build": "npm run build-lib && npm run build-editor",
     "build-lib": "tspc -p src/lib/tsconfig.build.json",
-    "build-editor": "rollup -c rollup.editor.mjs",
-    "bundle": "rollup -c rollup.config.mjs",
+    "build-editor": "rolldown -c rolldown.editor.config.mjs",
+    "bundle": "rolldown -c rolldown.config.mjs",
     "test": "vitest"
   },
   "sideEffects": false,
