@@ -358,6 +358,50 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   `npm run e2e:test -- run` passes; `npx eslint "**/*.ts?(x)"` is
   clean and `npm run prettier:fix` reflows nothing.
 
+* upgrade `vitest` from `^0.34.6` to `^5.0.1`
+
+  The unit-suite runtime moves five majors (0.34 → 5) together with the
+  workspace-wide Vite 4 → 8 upgrade. Uninstall-first:
+  `npm uninstall -w packages/core vitest`,
+  `npm add -D -w packages/core vitest@latest`, `npm dedupe`. The
+  package now consumes the single hoisted `vitest@5.0.1` (a required
+  `vite@^8.3.0` peer), shared with `2d` and `e2e`.
+
+  `vitest.config.ts` -> `vitest.config.mts`: `core` is a CommonJS
+  package (`tsc`-emitted `lib/index.js`), and its ESM-syntax config made
+  Vite 8 print
+
+  ```
+  (!) Your Vite config uses features that are unsupported by
+  `configLoader: 'native'`, which is planned to become the default in a
+  future major version of Vite:
+    - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1).
+  ```
+
+  Config discovery picks up `vitest.config.mts` unchanged; the jsdom
+  environment and `setupFiles: ['./vitest.setup.ts']` are untouched.
+
+  No test changes were required: the suite uses no pools/`poolOptions`,
+  `workspace`, `SpyInstance`/`EnhancedSpy`, third-argument test options,
+  fake timers, `mock.results` or coverage configuration. The
+  `vi.stubGlobal('DOMMatrix', class {})` setup and the jsdom
+  environment (jsdom stays `^30.0.1`) behave identically under Vitest 5,
+  and `clearMocks` defaulting to `true` is a no-op for a suite without
+  mocks.
+
+  Upstream notes (0.34 → 5): pools standardized under `--pool` (1.0),
+  default pool `forks` + serial hooks + `mock.settledResults` (2.0),
+  third-argument options deprecated + stricter error equality (3.0),
+  `workspace` → `projects`, tinypool removal, `maxWorkers`,
+  constructors in mocks (4.0), `vite` as a required peer, `clearMocks`
+  default, inline-project inheritance, `.vitest/` artifacts (5.0); the
+  full migration narrative is in the root CHANGELOG entry.
+
+  Verified: `timeout 60s npm run core:test` — 20 files / 216 tests pass
+  (the Vite config-loader warning is gone); `npx lerna run build`;
+  `npm run e2e:test -- run`; `npx eslint "**/*.ts?(x)"` and
+  `npm run prettier` are clean.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 

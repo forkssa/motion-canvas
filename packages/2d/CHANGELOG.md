@@ -348,6 +348,41 @@ saved with older versions still deserialize correctly.
   Verified with the lib `tspc` build, the editor rollup bundle and the
   unit suite (10 files / 54 tests).
 
+* upgrade `vitest` from `^0.34.6` to `^5.0.1`
+
+  The unit-suite runtime moves five majors (0.34 → 5) together with the
+  workspace-wide Vite 4 → 8 upgrade. Uninstall-first:
+  `npm uninstall -w packages/2d vitest`,
+  `npm add -D -w packages/2d vitest@latest`, `npm dedupe`. The package
+  now consumes the single hoisted `vitest@5.0.1` (a required
+  `vite@^8.3.0` peer), shared with `core` and `e2e`.
+
+  `vitest.config.ts` -> `vitest.config.mts`: `2d` is a CommonJS package
+  (the `tspc`-built `lib` plus the rollup-built editor bundle), and its
+  ESM-syntax config triggered Vite 8's native-config-loader warning
+  (`ESM syntax in a file loaded as CommonJS`). Config discovery and the
+  `include: ['./src/lib/**/*.test.*']` / jsdom settings are unchanged.
+
+  Only `src/lib/**/*.test.*` is covered, and none of those tests use
+  APIs that moved between 0.34 and 5 (no `poolOptions`, no
+  `SpyInstance`, no third-argument options, no fake timers, no
+  coverage). The `Txt` / `mockScene2D` jsdom suites and the
+  `markdown-literals` Vite plugin from `@motion-canvas/internal` behave
+  identically.
+
+  Upstream notes (0.34 → 5): pools standardized under `--pool` (1.0),
+  default pool `forks` + serial hooks + `mock.settledResults` (2.0),
+  third-argument options deprecated + stricter error equality (3.0),
+  `workspace` → `projects`, tinypool removal, `maxWorkers`,
+  constructors in mocks (4.0), `vite` as a required peer, `clearMocks`
+  default, inline-project inheritance, `.vitest/` artifacts (5.0); the
+  full migration narrative is in the root CHANGELOG entry.
+
+  Verified: `timeout 60s npm run 2d:test` — 10 files / 54 tests pass
+  (the Vite config-loader warning is gone); `npm run 2d:build` (`tspc`
+  lib + rollup editor); `npm run e2e:test -- run`;
+  `npx eslint "**/*.ts?(x)"` and `npm run prettier` are clean.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 **Note:** Version bump only for package @motion-canvas/2d

@@ -3,14 +3,33 @@
 Monorepo: npm workspaces (`packages/*`) + Lerna. Run all commands from this dir
 (the monorepo root). CI uses Node 24.20.0 (`verify.yml`); `HUSKY: 0` in CI.
 Note: `@commitlint/cli@21` and `lerna@10` require Node ≥22 — covered by the CI
-pin and the root `engines` floor (`>=24.20.0`).
+pin and the root `engines` floor (`>=24.20.0`). Build/test toolchain: the root
+`vite@^8.3.0` (Rolldown + Oxc, ESM-only, Lightning CSS minifier) drives every
+Vite workspace (`ui`, `player`, `examples`, `template`, `e2e`); unit tests run
+on `vitest@^5.0.1` (`core`, `2d`, `e2e`), whose `vite` peer is
+`^6.4.0 || ^7 || ^8` and is satisfied by the hoisted root copy.
+`@preact/preset-vite` is `^2.10.6` (first line with a Vite 8-compatible peer
+range).
 
 ## Setup & build order
 
 - `npm install` then `npx lerna run build` — full build is prerequisite for
-  tests, e2e, examples, docs.
-- Dev loop for editor: `npm run template:dev` (Vite watches `core`, `2d`, `ui`,
-  `vite-plugin`; `packages/template` is the sample project).
+  tests, e2e, examples, docs and the editor dev loop.
+- npm 11 gates install scripts behind root `allowScripts`:
+  `npm install-scripts ls` must report no unreviewed packages. Approve with
+  `npm install-scripts approve --all` (writes pinned entries) and run the newly
+  approved hook with `npm rebuild <pkg> --foreground-scripts`; drop entries
+  whose package left the tree with `npm install-scripts prune`. Currently
+  approved (all installed): `core-js`, `ffmpeg-ffprobe-static@6.1.2-rc.1`,
+  `nx@23.2.1`, `@parcel/watcher@2.6.0` (optional dep of `chokidar`/sass; its
+  `build-from-source.js` hook resolves the prebuilt
+  `@parcel/watcher-linux-x64-glibc` binding).
+- Dev loop for editor: `npm run template:dev` (Vite watches `core`, `2d`, `ui`
+  and the ffmpeg client through the config aliases; `packages/template` is the
+  sample project). The config loads the built `@motion-canvas/vite-plugin` /
+  `@motion-canvas/ffmpeg` and `editorPlugin` reads `@motion-canvas/ui`'s
+  `dist/editor.html`, so keep `npm run vite-plugin:dev` (`tsc -w`) running for
+  plugin edits — Vite restarts on `lib` changes.
 - Player dev requires a prior build: `npm run template:build`, then
   `npm run player:dev`.
 - Docs build requires both:
@@ -78,16 +97,35 @@ pin and the root `engines` floor (`>=24.20.0`).
   named value imports no longer type-check. Class names come from `clsx@^2.1.1`
   (default import; a single workspace-hoisted copy shared with `2d`/`docs` —
   `2d` uses the named `{clsx}` import, also valid in 2.x). `sass@^1.104.1` and
-  `highlight.js@^11.12.0` are devDeps: Vite 4.5 still drives Dart Sass through
-  the deprecated legacy JS API, so `vite.config.ts` sets
-  `css.preprocessorOptions.scss.silenceDeprecations: ['legacy-js-api']` (the
-  legacy API supports it since sass 1.78) to keep builds warning-free — drop it
-  once the toolchain moves to the modern API (Vite ≥ 5.4).
-- `vite-plugin`: plain `tsc` build, peer `vite 4.x || 5.x`. Its `skipLibCheck`
-  is not accidental — keep it. Project globs (`project` entries such as
-  `src/*.ts`) are expanded with `fast-glob@^3.3.3` in `src/utils.ts`
-  (`fg.isDynamicPattern()` + `fg.sync(..., {onlyFiles: true})`); that range also
-  keeps the hoisted `micromatch` on the patched 4.0.8 line. `mime-types@^3.0.2`
+  `highlight.js@^11.12.0` are devDeps. Vite 8 drives Dart Sass through the
+  modern API, so the `silenceDeprecations: ['legacy-js-api']` workaround was
+  dropped in the Vite 8 upgrade (only `packages/2d/rollup.editor.mjs` keeps it —
+  `rollup-plugin-postcss` still calls the legacy API). The lib build pins
+  `build.lib.cssFileName: 'style'`: Vite 6+ otherwise names the CSS output after
+  `build.lib.fileName` (`main.css`), while `editorPlugin` injects
+  `dist/style.css` and `packages/docs/editor.js` serves `/editor/style.css`.
+  `vite.showcase.ts` pins the same name. Its `vite.config.ts` uses
+  `build.rolldownOptions` (the Vite 8 rename) and the package is
+  `"type": "module"`, so it loads as ESM.
+- `vite-plugin`: plain `tsc` build, peer `vite ^8.0.0`. Its `skipLibCheck` is
+  not accidental — keep it. The package stays CommonJS (no `"type": "module"`)
+  but its tsconfig uses `module`/`moduleResolution` `node16` and every `vite`
+  import is a type-only `import type … with {'resolution-mode': 'import'}` —
+  Vite 8's declarations are ESM-only and cannot be resolved, let alone
+  value-imported, under legacy `node` resolution (TS1479). The emitted `lib`
+  must stay free of `require('vite')`; the one runtime use (`normalizePath` in
+  `src/partials/webgl.ts`) was replaced with an inline slash conversion. JSX
+  goes through
+  `oxc: {jsx: {runtime: 'automatic', importSource: '@motion-canvas/2d/lib'}}`
+  (the `esbuild` option is deprecated in Vite 8), the non-editor `build.target`
+  is `'baseline-widely-available'` (`'modules'` was removed in Vite 7), and
+  build hooks use `rolldownOptions`. The virtual `\0virtual:editor` module emits
+  project imports via `path.resolve(filePath)` — Vite 8/Rolldown no longer
+  resolves relative specifiers inside virtual modules against the process cwd.
+  Project globs (`project` entries such as `src/*.ts`) are expanded with
+  `fast-glob@^3.3.3` in `src/utils.ts` (`fg.isDynamicPattern()` +
+  `fg.sync(..., {onlyFiles: true})`); that range also keeps the hoisted
+  `micromatch` on the patched 4.0.8 line. `mime-types@^3.0.2`
   (`src/partials/exporter.ts`) still ships no types — keep the
   `@types/mime-types@^3.0.1` devDep; 3.x resolves via `mime-db@^1.54` and its
   mime-score conflict resolution, so `mime.extension('image/jpeg')` returns
@@ -102,18 +140,23 @@ pin and the root `engines` floor (`>=24.20.0`).
   `@types` package also drops the runtime `follow-redirects` dep from the
   manifest, so re-add it after uninstalling the types.
 - `ffmpeg`: dual `client/tsconfig.json` + `server/tsconfig.json` builds; license
-  GPLv3 (others MIT). The server's ffmpeg API types come from
-  `@types/fluent-ffmpeg@^2.1.28` (devDep) — its typed `on()` overloads pass
-  `(stdout, stderr)` to the `end` listener, so resolve with `() => resolve()`,
-  never `resolve` directly. The bundled binaries come from
+  GPLv3 (others MIT). The server tsconfig uses `module`/`moduleResolution`
+  `node16` (CommonJS emit preserved) and `server/FFmpegBridge.ts` imports
+  `Connect` / `ViteDevServer` from `vite` through a `resolution-mode` type
+  import, since Vite 8's declarations are ESM-only. The server's ffmpeg API
+  types come from `@types/fluent-ffmpeg@^2.1.28` (devDep) — its typed `on()`
+  overloads pass `(stdout, stderr)` to the `end` listener, so resolve with
+  `() => resolve()`, never `resolve` directly. The bundled binaries come from
   `ffmpeg-ffprobe-static@^6.1.2-rc.1` (ffmpeg/ffprobe 6.1.2), which downloads
   them in an `install` script: keep the root `allowScripts` pin in step with the
   installed version (npm 11 skips unapproved scripts) and re-check it on every
   bump. 6.1.2-rc.1 dropped the old `postinstall: patch-package` hook, so the
   matching root `overrides` entry was removed too.
 - `player`: Vite web-component consumer of built packages. Its devDep
-  `sass@^1.104.1` shares the `ui` copy, and its `vite.config.ts` silences the
-  same `legacy-js-api` deprecation via `css.preprocessorOptions.scss`.
+  `sass@^1.104.1` shares the `ui` copy; the config's `legacy-js-api`
+  `silenceDeprecations` block was removed with the Vite 8 upgrade (modern API)
+  and `build.rollupOptions` became `build.rolldownOptions`. The package is
+  `"type": "module"`, so `vite.config.ts` already loads as ESM.
 - `internal`: private build helpers only — includes `vite/markdown-literals`
   plugin required by `core`/`2d` vitest configs. `common/marked.js` (shared by
   the `markdown-literals` TS transformer and Vite plugin) runs
@@ -131,14 +174,22 @@ pin and the root `engines` floor (`>=24.20.0`).
 - `e2e` / `examples` / `template`: private, not published. The `code-block`
   example project was removed in 4.0.0; adding a new example requires both a
   `src/*.ts` project file (plus its `scenes/*` entry and `.meta`) and a line in
-  the `project` list of `packages/examples/vite.config.ts`. Since the editor dev
-  loop aliases `@motion-canvas/ui` / `@motion-canvas/2d/editor` to source,
-  `packages/template/vite.config.ts` carries the same
-  `css.preprocessorOptions.scss.silenceDeprecations` entry as `ui` / `player`.
+  the `project` list of `packages/examples/vite.config.mts`. Since the editor
+  dev loop aliases `@motion-canvas/ui` / `@motion-canvas/2d/editor` to source,
+  `packages/template/vite.config.mts` uses the same aliases and imports the
+  built `@motion-canvas/vite-plugin` / `@motion-canvas/ffmpeg` packages (the
+  only config that used to import their TS sources; importing them made every
+  file in those CJS packages trip Vite 8's `configLoader: 'native'` warning).
+  All three configs are `.mts`/ESM (the packages are CJS; the planned native
+  config loader rejects ESM syntax in CJS-loaded files) and use
+  `rolldownOptions`; calls on the CJS plugin packages go through `.default`
+  (`motionCanvas.default(...)`, `ffmpeg.default()`) because an ESM-loaded config
+  gets the namespace object. `e2e/vite.config.ts` takes `defineConfig` from
+  `vitest/config` so its `test` block is typed.
 
 ## Verify (mirrors `verify.yml`)
 
-- Lint: `npx eslint "**/*.ts?(x)"` — quote the glob. Flat config lives in
+- Lint: `npx eslint "**/*.{ts,tsx,mts}"` — quote the glob. Flat config lives in
   `eslint.config.mjs` (eslint 10; eslintrc is not supported). Companion pins:
   `@typescript-eslint/*` v8, `eslint-plugin-tsdoc` 0.5.x, `@eslint/js` v10,
   `globals` v17.
@@ -149,15 +200,21 @@ pin and the root `engines` floor (`>=24.20.0`).
   (`lerna run test`, `core:test`, `2d:test`, …) with a 60s timeout (e.g.
   `timeout 60s npm run core:test`): on a TTY lerna's Nx-powered task UI stays
   alive after the run finishes, waiting for `q`, and the per-package scripts
-  invoke bare `vitest`, which drops into watch mode.
+  invoke bare `vitest`, which drops into watch mode. The `core` / `2d` configs
+  are `vitest.config.mts`: the packages emit CommonJS but the configs use ESM
+  syntax, and Vitest 5/Vite 8 warns for ESM syntax in a CJS-loaded config
+  (`configLoader: 'native'`). The `e2e` config keeps its `test` block in
+  `vite.config.ts`.
 - Single test: `npx vitest run <path>` from `packages/core` or `packages/2d`
   (jsdom env; `core` uses `vitest.setup.ts`). jsdom is declared as a devDep in
   both `.package.json` files (currently `^30.0.1`) and is only loaded by the
-  vitest dom-environment — never import it directly; vitest@0.34 instantiates
-  jsdom 30 programmatically without peer conflicts.
+  vitest dom-environment — never import it directly; vitest@5 consumes jsdom
+  through its optional peer without conflicts.
 - E2E: `npm run e2e:test -- run` (non-interactive; plain `npm run e2e:test`
   drops into vitest watch mode on a TTY) — Playwright **Firefox** headless +
-  `jest-image-snapshot@^6.5.2`; spins up Vite server itself. Failure diffs:
+  `jest-image-snapshot@^6.5.2`; spins up Vite server itself
+  (`packages/e2e/vite.config.ts` sets `testTimeout`/`hookTimeout` to 60s, as the
+  `beforeAll` hook launches the browser and the server). Failure diffs:
   `packages/e2e/src/__image_snapshots__/__diff_output__`. In containers set
   `HOME=/root` (see `verify.yml`). `playwright@^1.63.0` pins its own browser
   builds (`firefox-1543` / `ffmpeg-1011`): run `npx playwright install firefox`

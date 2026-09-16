@@ -31,7 +31,7 @@ jobs:
           node-version: 24.20.0
           cache: npm
       - run: npm ci
-      - run: npx eslint "**/*.ts?(x)"
+      - run: npx eslint "**/*.{ts,tsx,mts}"
   prettier:
     name: Code style
     runs-on: ubuntu-latest

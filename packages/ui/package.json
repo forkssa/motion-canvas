@@ -31,7 +31,7 @@
     "preact": "^10.29.8"
   },
   "devDependencies": {
-    "@preact/preset-vite": "^2.7.0",
+    "@preact/preset-vite": "^2.10.6",
     "clsx": "^2.1.1",
     "highlight.js": "^11.12.0",
     "sass": "^1.104.1",

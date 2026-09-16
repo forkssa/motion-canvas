@@ -2143,9 +2143,307 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
     invalid marker.
   - The `workspace/motion-canvas/dependency-tree.md` report was
     regenerated from `workspace/`
-    (`npm run motion-canvas-dependency-tree`):
-    `ffmpeg-ffprobe-static@6.1.2-rc.1` is auto-marked at latest and
-    the full tree no longer contains any `patch-package` entries.
+  (`npm run motion-canvas-dependency-tree`):
+  `ffmpeg-ffprobe-static@6.1.2-rc.1` is auto-marked at latest and
+  the full tree no longer contains any `patch-package` entries.
+
+* upgrade `vite` from 4.5.0 to 8.3.0 and `vitest` from 0.34.6 to 5.0.1
+
+  The wrapper's build/test toolchain moves four Vite majors (4 → 8) and
+  five Vitest majors (0.34 → 5) in one step. `vite` is the root
+  devDependency hoisted for `ui`, `player`, `examples`, `template` and
+  `e2e`; `vitest` is a devDependency of `core` / `2d` and a runtime
+  dependency of `e2e`. Uninstall-first, per workspace:
+
+  1. `npm uninstall vite` (root)
+  2. `npm uninstall -w packages/core -w packages/2d -w packages/e2e vitest`
+  3. `npm uninstall -w packages/ui @preact/preset-vite`
+  4. `npm add -D vite@latest` (root → 8.3.0)
+  5. `npm add -D -w packages/ui @preact/preset-vite@latest` (→ 2.10.6)
+  6. `npm add -D -w packages/core -w packages/2d vitest@latest` (→ 5.0.1)
+  7. `npm add -w packages/e2e vitest@latest` (→ 5.0.1)
+  8. `npm dedupe`
+
+  A second `npm install` and `npm dedupe` are no-ops (the
+  `package-lock.json` hash is unchanged), and `npm ls vite vitest`
+  resolves a single hoisted `vite@8.3.0` + `vitest@5.0.1` with no new
+  invalid markers (the pre-existing `@noble/hashes@1.4.0` marker under
+  `jsdom` is untouched).
+
+  Manifest changes:
+
+  - package.json: `vite` `^4.5.0` -> `^8.3.0`; the stale `allowScripts`
+    pin `esbuild@0.18.20` is dropped — Vite 8 replaced esbuild with
+    Rolldown/Oxc and `npm ls esbuild --all` is now empty (esbuild is
+    only an optional peer of Vite for the deprecated
+    `transformWithEsbuild` / `build.minify: 'esbuild'` paths, and none
+    is installed).
+  - packages/vite-plugin/package.json: peer `vite` `4.x || 5.x` ->
+    `^8.0.0`.
+  - packages/core, packages/2d, packages/e2e: `vitest` `^0.34.6` ->
+    `^5.0.1`.
+  - packages/ui: `@preact/preset-vite` `^2.7.0` -> `^2.10.6`. The new
+    release line is the first whose peer range accepts Vite 8
+    (`2.x || 3.x || 4.x || 5.x || 6.x || 7.x || 8.x`); the old 2.7.0
+    range (`2.x || … || 5.x`) makes any Vite 8 install fail with
+    ERESOLVE.
+  - packages/ui keeps `vite-plugin-dts@^4.5.4` (peer `vite: "*"`); its
+    `rollupTypes: true` CI path still runs through api-extractor's
+    bundled TS 5.9 against Vite 8. 5.x would require an explicit
+    `@microsoft/api-extractor` peer and was not taken.
+  - packages/create/template-2d-{js,ts}: scaffolded `vite` `^4.0.0` ->
+    `^8.0.0`.
+  - packages/template: `@motion-canvas/ffmpeg` added to
+    `devDependencies` (`"*"`), so the editor sample app declares the
+    plugin it loads and Lerna orders `ffmpeg` before `template`.
+  - package.json `allowScripts`: `@parcel/watcher@2.6.0` is approved
+    (previously left unreviewed on purpose; see the sass entry above).
+    `npm install-scripts approve --all` wrote the pin and
+    `npm rebuild @parcel/watcher --foreground-scripts` executed its
+    `node scripts/build-from-source.js` install hook successfully.
+    A full scan of the tree found only four packages with install hooks
+    (`@parcel/watcher`, `core-js`, `ffmpeg-ffprobe-static`, `nx`); the
+    other three were re-run with `npm rebuild <pkg>
+    --foreground-scripts` and all completed (the ffmpeg/ffprobe
+    binaries report `n6.1.2`). `npm install-scripts prune` then removed
+    the stale `core-js-pure` entry — the package is no longer in the
+    tree — so `allowScripts` now matches the installed set exactly and
+    `npm install-scripts ls` reports nothing unreviewed.
+  - package-lock.json: 1578 insertions / 1292 deletions. The old
+    esbuild subtree, Vite's Rollup copy, `@vitest/*@0.34.6` (`expect`,
+    `runner`, `snapshot`, `spy`, `utils`), `cac`, `chai@4`, `acorn`,
+    `acorn-walk`, `loupe`, `tinyspy` etc. leave. Vite 8 pulls
+    `rolldown@1.2.9` (+ `@rolldown/binding-linux-x64-gnu`,
+    `@rolldown/pluginutils`), `lightningcss@1.33.0`,
+    `@oxc-project/types@0.150.0`, `tinyglobby@0.2.17`,
+    `postcss@8.5.28` and a nested `picomatch@4`. Vitest 5 keeps
+    `@vitest/mocker@5.0.1`, `chai@6.2.2`, `@types/chai@5.2.3` and
+    `tinybench@6.1.4`, and no longer depends on `tinypool` (the
+    remaining 1.1.1 copy belongs to `@docusaurus/core`).
+
+  Upstream changes (vite 4.5.0 → 8.3.0)
+  -------------------------------------
+
+  - **5.0** — Rollup 4 (`this.resolve` `skipSelf` default, trimmed
+    `this.parse` options); the CJS Node API is deprecated in favour of
+    ESM configs (Vite 6+ is ESM-only); `define` /
+    `import.meta.env.*` are replaced through esbuild in builds;
+    `worker.plugins` becomes a function; manifests move to
+    `<outDir>/.vite`; dev/preview HTML serving is unified; default CSS
+    imports, `import.meta.globEager`, `resolvePackageEntry` /
+    `resolvePackageData` and `--https` are removed; decorators require
+    `experimentalDecorators`; `useDefineForClassFields` follows the
+    TS target.
+  - **6.0** — Environment API + Module Runner; `resolve.conditions`
+    defaults are applied explicitly (`defaultClientConditions` /
+    `defaultServerConditions`); `json.stringify: 'auto'`; Sass uses the
+    modern API by default; library-mode CSS output names default to the
+    package name (or `build.lib.fileName`); `postcss-load-config` v6.
+  - **7.0** — Node 20.19+/22.12+; the default `build.target` becomes
+    `'baseline-widely-available'` (`'modules'` is gone); the Sass
+    legacy API is removed; `splitVendorChunkPlugin` and hook-level
+    `enforce`/`transform` for `transformIndexHtml` are removed.
+  - **8.0** — Rolldown + Oxc replace Rollup + esbuild: the dependency
+    optimizer, JS transforms, JS minification and (via Lightning CSS)
+    CSS minification all move; `optimizeDeps.esbuildOptions` and the
+    `esbuild` config option are deprecated in favour of their
+    `rolldownOptions` / `oxc` counterparts (auto-converted for
+    compatibility); `build.rollupOptions` is renamed to
+    `build.rolldownOptions`; consistent CJS default-export interop;
+    `browser`/`module` format sniffing is removed; `require` calls for
+    externalized modules stay `require`; `import.meta.url` is no longer
+    polyfilled in UMD/IIFE; module types are auto-detected by
+    extension; `build()` throws `BundleError`; the object form of
+    `output.manualChunks` is removed.
+
+  Upstream changes (vitest 0.34.6 → 5.0.1)
+  ----------------------------------------
+
+  - **1.0** — requires Vite 5 / Node 18; snapshots lose quote escaping
+    and use backticks; pools are standardized (`--threads` →
+    `--pool=threads`, `--no-threads` → `--pool=forks`, `--isolate` →
+    `poolOptions`, …); coverage thresholds move under
+    `coverage.thresholds` with `coverage.all` defaulting to true;
+    `SpyInstance`/`EnhancedSpy` are superseded by `MockInstance`;
+    `process.nextTick` is no longer faked by default.
+  - **2.0** — default pool becomes `forks`; hooks run in a stack
+    (serial, `afterAll` reverse order); `suite.concurrent` runs all
+    tests concurrently; V8 `ignoreEmptyLines` default; `watchExclude`
+    removed; `vi.fn<TArgs, TReturn>` becomes `vi.fn<T>`; resolved mock
+    results move to `mock.settledResults`; `SpyInstance` is removed.
+  - **3.0** — test options as a third argument are deprecated (removed
+    in 4); `browser.name`/`providerOptions` → `browser.instances`;
+    `spy.mockReset()` restores the original implementation; fake timers
+    mock every available timer API; error equality checks more
+    properties; the `module` export condition is not resolved by
+    default on Vite 6.
+  - **4.0** — requires Vite ≥ 6 / Node ≥ 20; V8 coverage is remapped
+    through an AST-based provider; `coverage.all`/`coverage.extensions`
+    are removed (only covered files are reported unless
+    `coverage.include` is set); the default `exclude` shrinks to
+    `node_modules`/`.git`; `vi.spyOn`/`vi.fn` support constructors;
+    automocked getters stop calling the original; `restoreMocks` no
+    longer touches automocks; `vite-node` is replaced by Vite's module
+    runner; `workspace` → `projects`; pools are rewritten without
+    tinypool (`maxWorkers`, `poolOptions` removed); browser providers
+    become factory objects; `poolMatchGlobs`, `environmentMatchGlobs`,
+    `deps.external`/`inline`, `minWorkers` and third-argument options
+    are removed.
+  - **5.0** — `vite` becomes a required peer (`^6.4.0 || ^7 || ^8`) and
+    is no longer a direct dependency (npm/pnpm/Bun/Deno auto-install
+    peers; Yarn users must add it); Node ≥ 22.12; `clearMocks` defaults
+    to true; `testNamePattern` matches the `' > '`-joined full name;
+    inline projects inherit the root config and share its Vite server;
+    `vi.mock`/`vi.unmock`/`vi.hoisted` must be top-level; class mocks
+    keep prototype methods; the benchmarking API is rewritten around a
+    `test`-context fixture; fake timers also mock `Temporal`; unawaited
+    `resolves`/`rejects` assertions fail the test; `expect.poll`
+    rejects on timeout; `test.sequential`/`describe.sequential` are
+    removed; artifacts move to a single `.vitest/` directory;
+    `resolveConfig` returns the Vite config; the deprecated
+    `vitest/coverage` etc. entrypoints are removed.
+
+  Source changes
+  --------------
+
+  - packages/vite-plugin/tsconfig.json: `module`/`moduleResolution`
+    `commonjs`/`node` -> `node16`/`node16`. Vite 8 ships ESM-only type
+    declarations; legacy `node` resolution cannot follow its exports
+    map ("Cannot find module 'vite'"), and even under `node16` a CJS
+    module may not value-import them. The emitted format is unchanged
+    (no `"type": "module"`), so the plugin stays CommonJS.
+  - packages/vite-plugin/src/**: every `vite` import becomes
+    `import type … with {'resolution-mode': 'import'}` (TS 5.4's
+    documented escape hatch for ESM types consumed from CJS). The
+    compiled `lib` contains no `require('vite')` at all.
+  - packages/vite-plugin/src/partials/projects.ts:
+    - `build.target: 'modules'` -> `'baseline-widely-available'`
+      (removed in Vite 7; the editor build keeps `'esnext'`);
+    - `esbuild: {jsx: 'automatic', jsxImportSource:
+      '@motion-canvas/2d/lib'}` -> `oxc: {jsx: {runtime: 'automatic',
+      importSource: '@motion-canvas/2d/lib'}}` (Oxc replaced esbuild);
+    - `rollupOptions` -> `rolldownOptions` (`preserveEntrySignatures`
+      and the generated `input` map are supported by Rolldown).
+  - packages/vite-plugin/src/partials/editor.ts: the virtual
+    `\0virtual:editor` module imports project files through
+    `path.resolve(filePath)` instead of the raw config-relative
+    `filePath`. Vite 8/Rolldown no longer resolves relative specifiers
+    inside a virtual module against the process cwd; without the change
+    the e2e server fails with `Failed to resolve import
+    "./tests/project.ts?project" from " virtual:editor"`.
+  - packages/vite-plugin/src/partials/webgl.ts: `normalizePath` is no
+    longer imported from `vite` (a runtime value import, impossible in
+    the CJS build against ESM-only Vite); the emitted `//# sourceURL`
+    uses `path.relative(...).replace(/\\/g, '/')`, which is equivalent
+    for the relative path used here.
+  - packages/ffmpeg/server/tsconfig.json: `module`/`moduleResolution`
+    `CommonJS`/`node` -> `node16`; `FFmpegBridge.ts` imports
+    `Connect`/`ViteDevServer` as a `resolution-mode` type import.
+  - packages/ui/vite.config.ts, packages/player/vite.config.ts,
+    packages/template/vite.config.mts: drop
+    `css.preprocessorOptions.scss.silenceDeprecations:
+    ['legacy-js-api']` — Vite 6+ drives Dart Sass through the modern
+    API and Vite 7 removed the legacy API, so the suppression is void.
+    (`packages/2d/rollup.editor.mjs` keeps its entry: the 2d editor
+    build still goes through `rollup-plugin-postcss`'s legacy API.)
+  - packages/ui/vite.config.ts + vite.showcase.ts: `rollupOptions` ->
+    `rolldownOptions`, and the library build pins
+    `build.lib.cssFileName: 'style'`. Vite 6+ names the lib CSS output
+    after `build.lib.fileName` (`main.css`); both the editor plugin
+    (`dist/style.css`) and `packages/docs/editor.js`
+    (`/editor/style.css`) consume `style.css`.
+  - packages/examples/vite.config.ts -> vite.config.mts,
+    packages/template/vite.config.ts -> vite.config.mts,
+    packages/core/vitest.config.ts -> vitest.config.mts,
+    packages/2d/vitest.config.ts -> vitest.config.mts: the four CJS
+    packages have ESM-syntax configs and Vite 8 warns that the planned
+    native config loader cannot load them (`ESM syntax in a file loaded
+    as CommonJS`). `.mts` removes the warning. Because an ESM-loaded
+    config resolves the CJS plugin package differently,
+    `packages/examples/vite.config.mts` calls
+    `motionCanvas.default(...)` (like the already-ESM
+    `packages/e2e/vite.config.ts`).
+  - packages/template/vite.config.mts: the last config-loader warnings
+    came from importing monorepo TypeScript sources across package
+    boundaries (`../ffmpeg/server`, `../vite-plugin/src/main`) — the
+    source files live in CJS packages (`esm-syntax-in-cjs`) and two
+    specifiers were extensionless/directory indices. The config now
+    imports the built `@motion-canvas/ffmpeg` and
+    `@motion-canvas/vite-plugin` packages, so it is
+    `configLoader: 'native'`-clean; both are called via the CJS
+    interop's `.default` (same as examples/e2e). The editor dev loop
+    already needed built artifacts (`editorPlugin` reads
+    `@motion-canvas/ui`'s `dist/editor.html` and `dist/style.css`), so
+    this adds no new build prerequisite; the browser-side aliases to
+    `core` / `2d` / `ui` / `ffmpeg` source are unchanged, and plugin
+    changes are picked up by keeping `npm run vite-plugin:dev`
+    (`tsc -w`) running — Vite watches the config's `lib` dependency and
+    restarts.
+  - packages/e2e/vite.config.ts: `defineConfig` now comes from
+    `vitest/config` (which augments Vite's `UserConfig` with `test`);
+    the `/// <reference types="vitest" />` triple-slash is no longer
+    needed.
+  - packages/create/template-2d-{js,ts}/package.json: scaffolded
+    projects move to `vite@^8.0.0` to match the plugin's peer.
+
+  Verification
+  ------------
+
+  - `npx lerna run build` (6 projects) passes with zero Sass
+    deprecation warnings (the previous `silenceDeprecations` workaround
+    is gone).
+  - `CI=true npm run ui:build` passes, exercising
+    `vite-plugin-dts@4.5.4`'s api-extractor-backed `rollupTypes` path
+    against Vite 8.
+  - `timeout 60s npm run core:test`: 20 files / 216 tests pass (no
+    config-loader warning after the `.mts` rename);
+    `timeout 60s npm run 2d:test`: 10 files / 54 tests pass.
+  - `npm run e2e:test -- run` passes (Playwright Firefox + image
+    snapshot, ~6.3s). The `Hook timed out in 10000ms` failure seen
+    right after the upgrade was the `motion-canvas:editor` virtual
+    module's relative `?project` import failing to resolve under
+    Rolldown (see `editor.ts` above), not a real timeout; the absolute
+    project ids removed it. `packages/e2e/vite.config.ts` additionally
+    sets `hookTimeout: 60000` (it already set `testTimeout: 60000`) so
+    the browser-launch/server-start hook is not bound by Vitest's 10s
+    default on slow CI machines.
+  - `npm run examples:build`, `npm run template:build`,
+    `npm run player:build` and `npm run ui:build` pass.
+  - `npm run template:build` and a live `npm run template:dev` smoke
+    test (editor page served with HTTP 200) print zero
+    `configLoader: 'native'` warnings after the template config change.
+  - `timeout 60s npm run ui:type` reports `Found 0 errors`;
+    `npm run typecheck -w packages/docs` passes.
+  - `npx eslint "**/*.{ts,tsx,mts}"` is clean; `npm run prettier` is
+    clean after `prettier:fix` rewrote only
+    `packages/vite-plugin/src/partials/webgl.ts`.
+  - `npm install-scripts ls` reports no unreviewed install scripts and
+    `npm install` no longer prints the install-scripts warning;
+    `require('@parcel/watcher')` loads the prebuilt `watcher.node`.
+  - A live smoke test of `npm run examples:dev` serves `/` and
+    `/src/quickstart` (HTTP 200) and transforms both virtual editor
+    branches (`/@id/__x00__virtual:editor` and `…?project=…`) with
+    absolute project ids and no server errors.
+  - `npm ls vite vitest` resolves the single hoisted pair; `npm ls
+    --all` keeps only the pre-existing `@noble/hashes` invalid marker.
+
+  Other changes
+  -------------
+
+  - `eslint.config.mjs` (`files` now `**/*.{ts,tsx,mts}`), the root
+    `eslint` / `eslint:fix` scripts, the root `lint-staged` patterns and
+    `verify.yml` include `.mts`, so the renamed configs stay covered by
+    the lint job and the pre-commit hook.
+  - workspace/motion-canvas/dependency-tree.md (wrapper repo) was
+    regenerated with `npm run motion-canvas-dependency-tree`:
+    `vite@8.3.0`, `vitest@5.0.1` and `@preact/preset-vite@2.10.6` are
+    auto-marked at latest; the full tree shows the Rolldown/Oxc/
+    Lightning CSS/`@vitest/mocker` subtrees and no esbuild entries.
+  - AGENTS.md: the root devDep notes, the `ui`/`player`/`template` Sass
+    note, the `vite-plugin` peer/`node16` notes, the `e2e` Vitest note,
+    the `examples` config filename, the editor dev-loop prerequisite
+    and the `allowScripts` / `npm install-scripts` workflow were
+    updated.
 
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)

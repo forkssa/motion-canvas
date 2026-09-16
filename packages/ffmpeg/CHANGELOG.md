@@ -59,6 +59,41 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   `fluent-ffmpeg` smoke test using the package's own paths (lavfi →
   H.264 MP4, then `ffprobe` of the result).
 
+* adopt Vite 8's ESM-only type declarations in the server build
+
+  The workspace moved to `vite@8.3.0` (see the root CHANGELOG), and Vite
+  8 ships ESM-only type declarations. The server `tsconfig` used
+  `module: CommonJS` + `moduleResolution: node`, which cannot resolve
+  them at all — `npm run server:build` failed with
+
+  ```
+  server/FFmpegBridge.ts(3,38): error TS2307: Cannot find module
+  'vite' or its corresponding type declarations.
+  ```
+
+  Changes:
+
+  - `server/tsconfig.json`: `module`/`moduleResolution`
+    `CommonJS`/`node` -> `node16`/`node16`. Because the package has no
+    `"type": "module"`, the emitted `lib/server` is still CommonJS —
+    the declaration `Connect`/`ViteDevServer` types are the only
+    reason the compiler has to resolve Vite.
+  - `server/FFmpegBridge.ts`:
+    `import type {Connect, ViteDevServer} from 'vite' with
+    {'resolution-mode': 'import'}` — TS 5.4's import attribute for
+    ESM types consumed from a CJS module (plain `import type` still
+    raises TS1479 under `node16`).
+
+  Upstream note: Vite 5 deprecated the CJS Node API and Vite 6 made the
+  package ESM-only; the `node16` resolution mode is the migration Vite's
+  own guide recommends. No runtime code, exports or the
+  `@motion-canvas/vite-plugin` integration changed; the client build
+  (`module: esnext`) is untouched.
+
+  Verified: `npm run build -w packages/ffmpeg` (client + server `tsc`),
+  the full `npx lerna run build`, the `core` / `2d` unit suites, e2e,
+  and the `ffmpeg-ffprobe-static@6.1.2-rc.1` smoke path.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 **Note:** Version bump only for package @motion-canvas/ffmpeg

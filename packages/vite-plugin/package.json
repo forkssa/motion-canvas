@@ -19,7 +19,7 @@
     "lib"
   ],
   "peerDependencies": {
-    "vite": "4.x || 5.x"
+    "vite": "^8.0.0"
   },
   "devDependencies": {
     "@types/follow-redirects": "^1.14.4",

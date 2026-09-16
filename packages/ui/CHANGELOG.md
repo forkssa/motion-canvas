@@ -253,6 +253,56 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   ui:type` (`Found 0 errors`), the `core` / `2d` unit suites, e2e,
   `npx eslint "**/*.ts?(x)"` and `npm run prettier` (clean).
 
+* upgrade the editor build tooling to Vite 8
+
+  The editor shell builds through the workspace-hoisted `vite@8.3.0`
+  (root `vite` `^4.5.0` -> `^8.3.0`; see the root CHANGELOG for the full
+  Vite 4 → 8 migration).
+
+  Dependency:
+
+  - `@preact/preset-vite` `^2.7.0` -> `^2.10.6` (uninstall then
+    `npm add -D -w packages/ui @preact/preset-vite@latest`, then
+    `npm dedupe`). 2.10.6 is the first release line whose peer range
+    accepts Vite 8 (`2.x || … || 8.x`); the old 2.7.0 range stops at 5.x
+    and any Vite 8 install fails with ERESOLVE. Its
+    `@prefresh/vite@2.4.12` / `vite-prerender-plugin@0.5.13` subtree
+    resolves against the hoisted Vite.
+  - `vite-plugin-dts` stays on `^4.5.4`: its peer is `vite: "*"` and the
+    `rollupTypes: true` CI path still runs through api-extractor's
+    bundled TS 5.9 against Vite 8 (verified below). 5.x would require
+    an explicit `@microsoft/api-extractor` peer.
+
+  Config (`vite.config.ts`):
+
+  - `build.rollupOptions` -> `build.rolldownOptions` (Vite 8/Rolldown
+    rename; the `@motion-canvas/core` / preact externals are unchanged).
+  - the `css.preprocessorOptions.scss.silenceDeprecations:
+    ['legacy-js-api']` block is removed — Vite 6+ uses the Sass modern
+    API and Vite 7 removed the legacy API.
+  - `build.lib.cssFileName: 'style'` is pinned. Vite 6 changed the
+    library-mode CSS output name to follow `build.lib.fileName`, so the
+    output silently became `dist/main.css`; both the editor plugin
+    (`editorPlugin` injects `dist/style.css` into `editor.html`) and
+    `packages/docs/editor.js` (`/editor/style.css`) depend on the old
+    name.
+  - `vite.showcase.ts` (docs editor bundle into
+    `../docs/static/editor`) pins the same `cssFileName: 'style'`, since
+    `packages/docs/editor.js` hardcodes `/editor/style.css`.
+
+  Upstream notes: Vite 5 deprecated the CJS Node API, Vite 6 defaulted
+  library-mode CSS names to the package/file name, Vite 7 removed the
+  Sass legacy API, and Vite 8 replaced Rollup/esbuild with
+  Rolldown/Oxc/Lightning CSS. The generated `dist/main.js` keeps its
+  `@motion-canvas/core` and preact externals.
+
+  Verified: `npm run ui:build` (no deprecation warnings, `dist/style.css`
+  present) and `CI=true npm run ui:build` (exercises the
+  api-extractor-backed `rollupTypes` declaration rollup);
+  `timeout 60s npm run ui:type` (`Found 0 errors`); the `core` / `2d`
+  unit suites; `npm run e2e:test -- run`; `npx eslint "**/*.ts?(x)"` and
+  `npm run prettier` (clean).
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 

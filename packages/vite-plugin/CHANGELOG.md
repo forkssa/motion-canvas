@@ -186,6 +186,80 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   `source-map` 0.8 wasm path and a scratch Vite build through
   `webglPlugin()` with a real GLSL `#include` (valid v3 map emitted).
 
+* support Vite 8 and migrate the plugin to Rolldown/Oxc
+
+  The peer range moves from `4.x || 5.x` to `^8.0.0` for the
+  workspace-wide Vite 4 → 8 upgrade (root `vite` `^4.5.0` ->
+  `^8.3.0`; see the root CHANGELOG for the full migration narrative).
+  The package stays CommonJS (`main: lib/index.js`, no
+  `"type": "module"`) and emits no runtime `require('vite')` — all Vite
+  surface used is type-level except one helper in `webgl.ts`.
+
+  Type resolution:
+
+  - `tsconfig.json`: `module`/`moduleResolution` `commonjs`/`node` ->
+    `node16`/`node16`. Vite 8 ships ESM-only declarations behind its
+    exports map; legacy `node` resolution cannot find them at all
+    (`Cannot find module 'vite'` in every partial), and under `node16`
+    a CJS module may not value-import them (`TS1479`, even for
+    `import type`).
+  - Every `from 'vite'` import is now
+    `import type … with {'resolution-mode': 'import'}` — TS 5.4's
+    import attribute for ESM types consumed from CJS
+    (`main.ts`, `plugins.ts` and all ten partials). The emitted `lib`
+    was checked for `require('vite')`: none.
+
+  API migrations:
+
+  - `src/partials/projects.ts`:
+    - `build.target: 'modules'` -> `'baseline-widely-available'`.
+      `'modules'` was removed in Vite 7; the editor build keeps
+      `'esnext'`.
+    - `esbuild: {jsx: 'automatic', jsxImportSource:
+      '@motion-canvas/2d/lib'}` -> `oxc: {jsx: {runtime: 'automatic',
+      importSource: '@motion-canvas/2d/lib'}}`. Vite 8 replaced
+      esbuild with Oxc for TS/JSX transforms; the old `esbuild` option
+      still works through a deprecated compatibility layer.
+    - `build.rollupOptions` -> `build.rolldownOptions` (Vite 8 rename;
+      Rolldown supports `preserveEntrySignatures: 'strict'` and the
+      generated `input` map).
+  - `src/partials/editor.ts`: the virtual `\0virtual:editor` module now
+    emits project imports via `path.resolve(filePath)` instead of the
+    config-relative `filePath`. Vite 8/Rolldown no longer resolves
+    relative specifiers inside a virtual module against the process
+    cwd, which broke the e2e dev server with
+
+    ```
+    Internal server error: Failed to resolve import
+    "./tests/project.ts?project" from " virtual:editor".
+    ```
+
+    Both branches (single-project and `?project=` lookup) were fixed.
+  - `src/partials/webgl.ts`: the `normalizePath` value import from
+    `vite` is gone (it would have to be a runtime require of an
+    ESM-only package from a CJS build). The `//# sourceURL` now uses
+    `path.relative(config.root, base).replace(/\\/g, '/')`, which is
+    equivalent for the relative path used here.
+
+  Consumer notes:
+
+  - `@motion-canvas/ffmpeg`'s server `tsconfig` also moved to
+    `node16` with a `resolution-mode` type import (own CHANGELOG).
+  - `packages/examples` and `packages/template` configs became `.mts`
+    (Vite 8's planned native config loader rejects ESM syntax in
+    files loaded as CommonJS), and the examples config now calls
+    `motionCanvas.default(...)` because an ESM-loaded config resolves
+    the CJS plugin package to its namespace object.
+
+  Verified: `npm run vite-plugin:build` (`tsc`, clean) and a check that
+  `lib/**` contains no `require('vite')`; `npx lerna run build` (6
+  projects); `npm run examples:build`, `npm run template:build`,
+  `npm run player:build`; `timeout 60s npm run core:test` /
+  `2d:test`; `npm run e2e:test -- run`; a live `npm run examples:dev`
+  smoke test that serves `/` and `/src/quickstart` (200) and
+  transforms both virtual editor modules with absolute project ids;
+  `npx eslint "**/*.ts?(x)"` and `npm run prettier` (clean).
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 

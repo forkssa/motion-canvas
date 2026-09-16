@@ -18,7 +18,7 @@ export default [
   ...tsPlugin.configs['flat/recommended'],
   {
     name: 'motion-canvas/typescript',
-    files: ['**/*.ts', '**/*.tsx'],
+    files: ['**/*.ts', '**/*.tsx', '**/*.mts'],
     languageOptions: {
       parser: tsParser,
       ecmaVersion: 'latest',

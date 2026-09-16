@@ -57,6 +57,30 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   deprecation warnings), `npm run template:build`, the e2e suite and
   the repo-wide lint/prettier checks.
 
+* migrate the player build to Vite 8
+
+  The player's `vite.config.ts` is consumed by the workspace-hoisted
+  `vite@8.3.0` (the root devDependency moved from `^4.5.0` to
+  `^8.3.0`; see the root CHANGELOG). Two config changes:
+
+  - `build.rollupOptions` -> `build.rolldownOptions`: Vite 8 uses
+    Rolldown and renamed the option; the
+    `external: ['@motion-canvas/core']` entry is unaffected.
+  - the `css.preprocessorOptions.scss.silenceDeprecations:
+    ['legacy-js-api']` block is removed. Vite 6+ drives Dart Sass
+    through the modern API and Vite 7 removed the legacy API, so the
+    suppression added with the sass 1.104.1 upgrade is void and the
+    build is warning-free without it.
+
+  The config stays `.ts` (the player package is `"type": "module"`, so
+  it already loads as ESM), the web-component output (`dist/main.js`,
+  `format: 'es'`) and the virtual-template `load` hook are unchanged.
+
+  Verified: `npm run player:build` (`tsc && vite build`),
+  `npm run template:build`, `timeout 60s npm run core:test` /
+  `2d:test`, `npm run e2e:test -- run`, `npx eslint "**/*.ts?(x)"` and
+  `npm run prettier` (all clean).
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 **Note:** Version bump only for package @motion-canvas/player
