@@ -82,7 +82,20 @@ pin and the root `engines` floor (`>=24.20.0`).
   is not accidental — keep it. Project globs (`project` entries such as
   `src/*.ts`) are expanded with `fast-glob@^3.3.3` in `src/utils.ts`
   (`fg.isDynamicPattern()` + `fg.sync(..., {onlyFiles: true})`); that range also
-  keeps the hoisted `micromatch` on the patched 4.0.8 line.
+  keeps the hoisted `micromatch` on the patched 4.0.8 line. `mime-types@^3.0.2`
+  (`src/partials/exporter.ts`) still ships no types — keep the
+  `@types/mime-types@^3.0.1` devDep; 3.x resolves via `mime-db@^1.54` and its
+  mime-score conflict resolution, so `mime.extension('image/jpeg')` returns
+  `jpg` (JPEG exports are `.jpg`, was `.jpeg` under 2.x) and `lookup('*.wav')`
+  is `audio/wav` (was `audio/wave`). `source-map@^0.8.0`
+  (`src/partials/webgl.ts`) is the WASM line, but the `SourceNode` /
+  `SourceMapGenerator` pair stays synchronous in Node; the
+  `declare module 'source-map'` augmentation adding `toJSON(): any` is still
+  required for the custom `includeMap` key on the emitted map (0.8's own
+  signature returns `RawSourceMap`). `follow-redirects` is `^1.16.0` with
+  `@types/follow-redirects@^1.14.4`; npm 11.19.0's workspace uninstall of that
+  `@types` package also drops the runtime `follow-redirects` dep from the
+  manifest, so re-add it after uninstalling the types.
 - `ffmpeg`: dual `client/tsconfig.json` + `server/tsconfig.json` builds; license
   GPLv3 (others MIT). The server's ffmpeg API types come from
   `@types/fluent-ffmpeg@^2.1.28` (devDep) — its typed `on()` overloads pass

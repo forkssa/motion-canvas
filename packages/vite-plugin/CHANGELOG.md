@@ -141,6 +141,51 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   (the real glob consumer), the unit suites and the e2e rendering
   test.
 
+* upgrade the MIME and source-map toolchain
+
+  Four direct dependencies move to the registry `latest` (uninstall
+  first, then `npm add` / `npm add -D` @ `latest`, then `npm dedupe`):
+
+  - `mime-types` `^2.1.35` → `^3.0.2` (`src/partials/exporter.ts` uses
+    `mime.extension(mimeType)` to name exported image sequences);
+  - `source-map` `^0.6.1` → `^0.8.0` (`src/partials/webgl.ts` builds
+    the GLSL `#include` source map from synchronous `SourceNode`s);
+  - `@types/mime-types` `^2.1.1` → `^3.0.1` and
+    `@types/follow-redirects` `^1.14.1` → `^1.14.4` (declarations-only
+    refreshes; types for `mime-types` are still not bundled upstream).
+
+  The runtime `follow-redirects` range is normalized from `^1.15.2` to
+  `^1.16.0` (the already-installed copy) because npm 11.19.0's
+  workspace uninstall of `@types/follow-redirects` also drops the
+  runtime dependency from the manifest, so it had to be re-added.
+
+  User-visible behavior change: `mime-types` 3.x resolves JPEG through
+  `mime-db` 1.54.0's `["jpg", "jpeg", "jpe"]` ordering, so
+  `extension('image/jpeg')` now yields `jpg` (was `jpeg`) and JPEG
+  image sequences are written as `frame.jpg`. PNG and WEBP are
+  unchanged. The public `mime-types` API used here is otherwise
+  identical; 3.x only drops Node < 18, upgrades `mime-db` and switches
+  extension-conflict resolution to the `mime-score` algorithm.
+
+  `source-map` 0.7.x moved mappings encoding to WebAssembly and made
+  `SourceMapConsumer` promise-based, but the synchronous
+  `SourceNode` / `SourceMapGenerator` APIs used here are unchanged and
+  keep working in Node (the wasm blob is read via `fs.readFileSync`);
+  0.8.0 switches `SourceNode.sourceContents` to a null-prototype
+  object and types `toJSON()` as `RawSourceMap`, which is why the
+  `declare module 'source-map'` augmentation decorating the serialized
+  map with `includeMap` is still required. The module's own
+  `SourceNode.add` augmentation is redundant against the new upstream
+  signatures but harmless.
+
+  No source files were touched. Verified with the `tsc` build,
+  `npx lerna run build`, `npm run examples:build`, the `core` / `2d`
+  unit suites, `npm run e2e:test -- run`, `npm run ui:type`
+  (`Found 0 errors`), `npx eslint "**/*.ts?(x)"` and
+  `npm run prettier:fix` (no reflows), plus a Node smoke test of the
+  `source-map` 0.8 wasm path and a scratch Vite build through
+  `webglPlugin()` with a real GLSL `#include` (valid v3 map emitted).
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 

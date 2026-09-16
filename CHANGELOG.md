@@ -1793,6 +1793,135 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
   `workspace/motion-canvas/dependency-tree.md` report was regenerated
   (@types/fluent-ffmpeg@2.1.28 auto-marked at latest).
 
+* upgrade the Vite plugin's MIME and source-map toolchain
+
+  Four direct dependencies of `packages/vite-plugin` were moved to the
+  registry `latest`, following the repo's uninstall-first practice
+  (`npm uninstall -w packages/vite-plugin mime-types source-map
+  @types/mime-types @types/follow-redirects` → `npm add` /
+  `npm add -D` @ `latest` → `npm dedupe`; 79 insertions / 23 deletions
+  in `package-lock.json`, 5/5 in the manifest):
+
+  - dependency `mime-types` `^2.1.35` → `^3.0.2` — used by
+    `src/partials/exporter.ts` to derive the file extension of exported
+    image sequences (`mime.extension(mimeType)`);
+  - dependency `source-map` `^0.6.1` → `^0.8.0` — used by
+    `src/partials/webgl.ts` to compose the GLSL `#include` source map
+    (`SourceNode` + `toStringWithSourceMap()`);
+  - devDependency `@types/mime-types` `^2.1.1` → `^3.0.1`;
+  - devDependency `@types/follow-redirects` `^1.14.1` → `^1.14.4`.
+
+  `mime-types@3.0.2` still ships no bundled type declarations, so the
+  DefinitelyTyped package stays required. The runtime `follow-redirects`
+  range is normalized from `^1.15.2` to `^1.16.0` as a side effect:
+  npm 11.19.0's workspace uninstall drops the runtime
+  `follow-redirects` dependency when `@types/follow-redirects` is
+  removed in the same invocation (reproduced in a scratch npm
+  workspace), so it had to be re-added; the newly saved `^1.16.0` is
+  the already-installed copy, so no resolution changed — only the
+  declared range now matches the tree.
+
+  Upstream changes — `mime-types` 2.1.35 → 3.0.2
+  ----------------------------------------------
+
+  - 3.0.0 drops Node < 18 (CI and the root `engines` floor run Node
+    24.20.0), raises `mime-db` from `~1.52.0` to `^1.53.0` (resolved
+    1.52.0 → 1.54.0) and replaces the old
+    nginx/apache/source-preference conflict resolution with a back-port
+    of the `mime-score` package (`mimeScore.js`, `_extensionConflicts`
+    exported for review). The documented mapping changes are `asc`,
+    `mpp`, `ac`, `bdoc`, `wmz`, `xsl`, `wav`, `rtf`, `xml`, `mp4` and
+    `mpg4`.
+  - 3.0.1 bumps `mime-db` to 1.54.0; 3.0.2 refines the `.mp4`
+    score resolution and corrects the `false|string` JSDoc.
+  - The public API consumed here is unchanged, but one result is:
+    `mime-db` 1.54.0 lists `image/jpeg`'s extensions as
+    `["jpg", "jpeg", "jpe"]` (1.52.0 had `["jpeg", "jpg", "jpe"]`), and
+    `extension()` returns the first entry. `extension('image/jpeg')`
+    therefore now returns `jpg` instead of `jpeg`, so JPEG image
+    sequences are exported as `frame.jpg` rather than `frame.jpeg`
+    (PNG → `png` and WEBP → `webp` are unchanged, as is
+    `extension('video/mp4')` → `mp4`). A side-by-side comparison of the
+    old and new packages across the exporter's MIME types
+    (`image/png`, `image/jpeg`, `image/webp`) confirmed JPEG is the
+    only difference; `lookup('*.wav')` now also reports `audio/wav`
+    instead of `audio/wave`.
+
+  Upstream changes — `source-map` 0.6.1 → 0.8.0
+  ---------------------------------------------
+
+  - 0.6.1 was the last pre-WASM release. 0.7.x moved the mappings
+    codec to WebAssembly and reworked `SourceMapConsumer` to be
+    promise-based (`SourceMapConsumer.with()`,
+    `await new SourceMapConsumer(...)`, browser-side
+    `SourceMapConsumer.initialize()`); the APIs this plugin uses — the
+    synchronous `SourceNode` / `SourceMapGenerator` pair — are
+    unchanged and stay synchronous in Node, where the wasm blob is read
+    with `fs.readFileSync` (`lib/read-wasm.js`).
+  - 0.7.5 (2025-07) adopts WHATWG `URL` for all URL operations (drops
+    the `whatwg-url` dependency), drops the bundled `dist/` and splits
+    wasm loading by compilation target; 0.7.6 is a version-only
+    release; 0.8.0 (2026-07) hardens `SourceNode` by switching
+    `sourceContents` from `{}` to `Object.create(null)` (prototype
+    pollution) and updates the types: `SourceMapGenerator.toJSON()` is
+    now precisely `RawSourceMap` and `SourceMapConsumer.initialize` is
+    declared on the constructor rather than the instance interface.
+  - The `declare module 'source-map'` augmentation in
+    `src/partials/webgl.ts` is still required, not stale: the plugin
+    decorates the serialized map with an extra `includeMap` property
+    for the editor's shader-`#include` navigation, which the new
+    `toJSON(): RawSourceMap` signature rejects
+    (`TS2339: Property 'includeMap' does not exist on type
+    'RawSourceMap'` — verified by compiling the file with and without
+    the augmentation). The augmentation's `SourceNode.add` overload is
+    redundant now that upstream itself accepts `SourceNode` /
+    `(string | SourceNode)[]` and returns `SourceNode`, but it is
+    harmless and was kept.
+  - 0.8.0 has no runtime dependencies and no bundled `dist/`; the
+    hoisted `source-map@0.6.1` (webpack, handlebars, …) and the docs
+    tree's `0.7.6` copies remain untouched — the plugin resolves its
+    own nested `0.8.0`.
+
+  Upstream changes — the `@types` packages
+  ----------------------------------------
+
+  - `@types/mime-types` 2.1.1 → 3.0.1 and `@types/follow-redirects`
+    1.14.1 → 1.14.4 are declarations-only refreshes. Every exported
+    signature consumed by the plugin (`lookup`, `contentType`,
+    `extension`, `charset`, `charsets`, `types`, `extensions`;
+    `RedirectableRequest`, `followRedirects.http` / `.https`,
+    `maxRedirects`, `beforeRedirect`) is unchanged — the diffs are
+    DefinitelyTyped house-style reformatting (double quotes, import
+    ordering, dropped legacy comment headers) and the newer
+    `typeScriptVersion` floor (5.1).
+
+  Verification
+  ------------
+
+  `npm run build -w packages/vite-plugin` (`tsc`) passes;
+  `npx lerna run build` (6 projects) passes; `npm run examples:build`
+  (the Vite plugin's real consumer) passes; `timeout 60s npm run
+  core:test` (20 files / 216 tests) and `timeout 60s npm run 2d:test`
+  (10 files / 54 tests) pass; `npm run e2e:test -- run` passes;
+  `timeout 60s npm run ui:type` reports `Found 0 errors` (the watch
+  mode is killed by the timeout, as documented);
+  `npx eslint "**/*.ts?(x)"` is clean and `npm run prettier` /
+  `npm run prettier:fix` reflow nothing. A direct Node smoke test of
+  `new SourceNode(...)` → `add()` → `toStringWithSourceMap()` →
+  `toJSON()` and a scratch Vite build through the built `webglPlugin()`
+  (a `.glsl` file with a real `#include` and `build.sourcemap: true`)
+  confirmed the 0.8.0 wasm codec works synchronously and emits a valid
+  v3 map in this setup. The
+  `workspace/motion-canvas/dependency-tree.md` report
+  was regenerated from `workspace/`
+  (`npm run motion-canvas-dependency-tree`): `mime-types@3.0.2` (with
+  its nested `mime-db@1.54.0`), `source-map@0.8.0`,
+  `@types/mime-types@3.0.1`, `@types/follow-redirects@1.14.4` and
+  `follow-redirects@1.16.0` are auto-marked at latest in both the
+  shallow and full sections, while the hoisted `mime-types@2.1.35` /
+  `source-map@0.6.1` copies serving the docs/webpack tree stay as they
+  were.
+
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
