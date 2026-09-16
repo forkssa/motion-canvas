@@ -2073,6 +2073,80 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
   full tree now shows the new `sass` subtree (chokidar 5.0.0,
   readdirp 5.1.1, immutable 5.1.9 and optional @parcel/watcher 2.6.0).
 
+* upgrade `ffmpeg-ffprobe-static` from 6.1.1 to 6.1.2-rc.1
+
+  The FFmpeg exporter's static binary distribution — the runtime
+  dependency behind `packages/ffmpeg/server/FFmpegExporterServer.ts`'s
+  `import {ffmpegPath, ffprobePath} from 'ffmpeg-ffprobe-static'` —
+  moves from `^6.1.1-rc.5` to `^6.1.2-rc.1` (the registry `latest`
+  dist-tag) following the uninstall-first practice:
+  `npm uninstall -w packages/ffmpeg ffmpeg-ffprobe-static`,
+  `npm add -w packages/ffmpeg ffmpeg-ffprobe-static@latest`,
+  `npm dedupe`. The lockfile shrinks substantially (67 insertions /
+  332 deletions, 69/337 across the three changed files).
+
+  Root manifest adjustments:
+
+  - `allowScripts`: `"ffmpeg-ffprobe-static@6.1.1": true` →
+    `"ffmpeg-ffprobe-static@6.1.2-rc.1": true`. The package downloads
+    its platform binaries in an `install` script (`node install.js`),
+    so the pin must track the installed version — otherwise npm 11's
+    install-scripts gate silently skips the download.
+  - The `overrides` entry pinning `ffmpeg-ffprobe-static`'s
+    `patch-package` to 8.0.1 is removed: 6.1.2-rc.1 drops both the
+    `postinstall: patch-package` hook and the `patch-package@^6.2.2`
+    dependency, so `patch-package` and its whole subtree
+    (find-yarn-workspace-root, json-stable-stringify, jsonify,
+    klaw-sync, nested fs-extra/open/slash/yaml, …) leave the lock.
+
+  Upstream changes (6.1.1 → 6.1.2-rc.1)
+  -------------------------------------
+
+  - The bundled binaries move from release `b6.1.1-rc.1` (ffmpeg
+    6.1-static) to `b6.1.2-rc.1`; the installed linux-x64 build now
+    reports `ffmpeg version n6.1.2-9-g4571c80b40-20241023` (ffprobe
+    matches). It stays on the FFmpeg 6.1 line, so the
+    `fluent-ffmpeg@^2.1.3` command surface used by the exporter is
+    unchanged. (`7.1.0-rc.1`, the FFmpeg 7.1 preview, exists on the
+    registry but is not what the `latest` dist-tag points to.)
+  - `install.js` downloads from `descriptinc/ffmpeg-ffprobe-static`
+    again (6.1.1 pointed at the personal `srikanth-descript` fork) and
+    renders a separate progress bar per tool that adjusts its total
+    when the response length changes.
+  - `@derhuerst/http-basic` 8.2.0 → 8.2.4, which swaps its
+    `concat-stream@^1.6.2` for `^2.0.0` — the hoisted copy moves to
+    2.0.0 over `readable-stream@3.6.2` — and picks up the upstream
+    cache/header fixes.
+  - `README.md`, `index.js` and `index.d.ts` are unchanged; the
+    `keywords` list gains `ffprobe`.
+
+  Verification
+  ------------
+
+  - `npm run build -w packages/ffmpeg` (client + server `tsc`) and
+    `npx lerna run build` (6 projects) pass.
+  - The downloaded binaries were exercised end to end through the
+    same `fluent-ffmpeg` API the exporter uses: `setFfmpegPath` /
+    `setFfprobePath` with the package's paths, encode a lavfi source
+    to an H.264 MP4 with `ffmpeg n6.1.2`, then `ffprobe` the result
+    (`h264 64x64`, `mov,mp4,m4a,3gp,3g2,mj2`). `ffmpeg -version` /
+    `ffprobe -version` report the new build.
+  - `timeout 60s npm run core:test` (20 files / 216 tests),
+    `timeout 60s npm run 2d:test` (10 files / 54 tests) and
+    `npm run e2e:test -- run` pass; `npx eslint "**/*.ts?(x)"` is
+    clean and `npm run prettier` / `npm run prettier:fix` reflow
+    nothing.
+  - `npm audit` reports the same advisory set before and after
+    (24 moderate / 14 high / 1 critical over 39 package-advisories;
+    the removed patch-package subtree was not flagged), and
+    `npm ls --all` keeps only the pre-existing `@noble/hashes`
+    invalid marker.
+  - The `workspace/motion-canvas/dependency-tree.md` report was
+    regenerated from `workspace/`
+    (`npm run motion-canvas-dependency-tree`):
+    `ffmpeg-ffprobe-static@6.1.2-rc.1` is auto-marked at latest and
+    the full tree no longer contains any `patch-package` entries.
+
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 

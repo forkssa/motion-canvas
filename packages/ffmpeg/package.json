@@ -27,7 +27,7 @@
   "dependencies": {
     "@motion-canvas/core": "4.0.0",
     "@motion-canvas/vite-plugin": "4.0.0",
-    "ffmpeg-ffprobe-static": "^6.1.1-rc.5",
+    "ffmpeg-ffprobe-static": "^6.1.2-rc.1",
     "fluent-ffmpeg": "^2.1.3"
   }
 }

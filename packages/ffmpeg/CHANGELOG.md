@@ -31,6 +31,34 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   with the client + server `tsc` builds, the lerna build, the unit
   suites, eslint and prettier.
 
+* upgrade `ffmpeg-ffprobe-static` from `^6.1.1-rc.5` to `^6.1.2-rc.1`
+
+  The package that provides the exporter's bundled binaries
+  (`import {ffmpegPath, ffprobePath} from 'ffmpeg-ffprobe-static'` in
+  `server/FFmpegExporterServer.ts`, wired into
+  `fluent-ffmpeg.setFfmpegPath` / `setFfprobePath`) moves to the
+  registry `latest` dist-tag (uninstall first, then `npm add
+  ffmpeg-ffprobe-static@latest -w packages/ffmpeg`, then `npm
+  dedupe`).
+
+  6.1.2-rc.1 bundles the `b6.1.2-rc.1` binaries — the installed
+  linux-x64 build reports `ffmpeg version
+  n6.1.2-9-g4571c80b40-20241023`, staying on the FFmpeg 6.1 line — and
+  drops the `postinstall: patch-package` hook plus the
+  `patch-package@^6.2.2` dependency (which the root `overrides` entry
+  used to pin to 8.0.1; that override is now removed). The install
+  script also downloads from `descriptinc/ffmpeg-ffprobe-static`
+  again instead of the old personal fork, and `@derhuerst/http-basic`
+  moves 8.2.0 → 8.2.4 (`concat-stream@^2.0.0`). The root
+  `allowScripts` pin travels with the version
+  (`ffmpeg-ffprobe-static@6.1.2-rc.1`) so `node install.js` still
+  downloads the binaries under npm 11's install-scripts gate.
+
+  Verified: client + server `tsc` builds, the full lerna build, the
+  `core` / `2d` unit suites and e2e, plus an end-to-end
+  `fluent-ffmpeg` smoke test using the package's own paths (lavfi →
+  H.264 MP4, then `ffprobe` of the result).
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 **Note:** Version bump only for package @motion-canvas/ffmpeg

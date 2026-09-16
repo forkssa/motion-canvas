@@ -105,7 +105,12 @@ pin and the root `engines` floor (`>=24.20.0`).
   GPLv3 (others MIT). The server's ffmpeg API types come from
   `@types/fluent-ffmpeg@^2.1.28` (devDep) — its typed `on()` overloads pass
   `(stdout, stderr)` to the `end` listener, so resolve with `() => resolve()`,
-  never `resolve` directly.
+  never `resolve` directly. The bundled binaries come from
+  `ffmpeg-ffprobe-static@^6.1.2-rc.1` (ffmpeg/ffprobe 6.1.2), which downloads
+  them in an `install` script: keep the root `allowScripts` pin in step with the
+  installed version (npm 11 skips unapproved scripts) and re-check it on every
+  bump. 6.1.2-rc.1 dropped the old `postinstall: patch-package` hook, so the
+  matching root `overrides` entry was removed too.
 - `player`: Vite web-component consumer of built packages. Its devDep
   `sass@^1.104.1` shares the `ui` copy, and its `vite.config.ts` silences the
   same `legacy-js-api` deprecation via `css.preprocessorOptions.scss`.
