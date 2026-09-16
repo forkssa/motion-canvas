@@ -2,6 +2,13 @@ import * as fs from 'fs';
 import {defineConfig} from 'vite';
 
 export default defineConfig({
+  css: {
+    preprocessorOptions: {
+      scss: {
+        silenceDeprecations: ['legacy-js-api'],
+      },
+    },
+  },
   build: {
     lib: {
       entry: 'src/main.ts',

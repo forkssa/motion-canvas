@@ -16,6 +16,11 @@ export default [
       postcss({
         modules: true,
         extract: true,
+        use: {
+          sass: {
+            silenceDeprecations: ['legacy-js-api'],
+          },
+        },
       }),
       typescript({
         tsconfig: './src/editor/tsconfig.build.json',

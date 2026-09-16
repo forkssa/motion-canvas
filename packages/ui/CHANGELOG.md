@@ -217,6 +217,42 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   named import instead). Verified with the UI build
   (`tsc && vite build`), the repo-wide lint and prettier checks.
 
+* upgrade `sass` from `^1.69.5` to `^1.104.1` and `highlight.js` from
+  `^11.9.0` to `^11.12.0`
+
+  Both devDependencies move to the registry `latest` (uninstall first,
+  then `npm add -D` @ `latest`, then `npm dedupe`).
+
+  `sass` is the optional preprocessor peer of the workspace's
+  `vite@4.5.0`; it compiles the editor's ~40 `*.module.scss` files and
+  `src/index.scss`. 1.104.1 raises the engine floor to
+  `>=20.19.0` and swaps the subtree to `chokidar@5.0.0` /
+  `readdirp@5.1.1`, `immutable@5.1.9` (was 4.1.0) and an optional
+  prebuilt `@parcel/watcher@2.6.0`. The API used is only Vite's
+  preprocessor hook, but Vite still drives Dart Sass through the
+  legacy `render()` API, which prints a `DEPRECATION WARNING
+  [legacy-js-api]` per compiled file since sass 1.79.0. To keep build
+  logs clean, `packages/ui/vite.config.ts` (together with
+  `packages/player`) now sets
+  `css.preprocessorOptions.scss.silenceDeprecations:
+  ['legacy-js-api']` — supported by the legacy API since sass 1.78 and
+  removable once the toolchain uses the modern API (Vite ≥ 5.4). The
+  repo's SCSS uses no deprecated Sass features (`@import` only appears
+  as the plain-CSS `url()` form), so no stylesheets changed.
+
+  `highlight.js` backs the console's source-code frames
+  (`src/utils/sourceMaps.ts`: `highlight.highlight(source, {language})`
+  and `highlight.getLanguage`). 11.10.0 dropped Node 16 and updated
+  the TypeScript/C/C++/Rust grammars; 11.11.0 is grammar-only (new CSS
+  properties, Erlang OTP 27, Nix); 11.12.0 fixes a parser backreference
+  bug and adds the FreeDesktop config grammar. The API is unchanged
+  and no source files were touched.
+
+  Verified with `npm run ui:build` (`tsc && vite build`) — zero
+  deprecation warnings after the config change — plus `npm run
+  ui:type` (`Found 0 errors`), the `core` / `2d` unit suites, e2e,
+  `npx eslint "**/*.ts?(x)"` and `npm run prettier` (clean).
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 

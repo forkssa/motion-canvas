@@ -77,7 +77,12 @@ pin and the root `engines` floor (`>=24.20.0`).
   `import chroma from 'chroma-js'` (`chroma.hsv(...)`, `chroma.valid(...)`) —
   named value imports no longer type-check. Class names come from `clsx@^2.1.1`
   (default import; a single workspace-hoisted copy shared with `2d`/`docs` —
-  `2d` uses the named `{clsx}` import, also valid in 2.x).
+  `2d` uses the named `{clsx}` import, also valid in 2.x). `sass@^1.104.1` and
+  `highlight.js@^11.12.0` are devDeps: Vite 4.5 still drives Dart Sass through
+  the deprecated legacy JS API, so `vite.config.ts` sets
+  `css.preprocessorOptions.scss.silenceDeprecations: ['legacy-js-api']` (the
+  legacy API supports it since sass 1.78) to keep builds warning-free — drop it
+  once the toolchain moves to the modern API (Vite ≥ 5.4).
 - `vite-plugin`: plain `tsc` build, peer `vite 4.x || 5.x`. Its `skipLibCheck`
   is not accidental — keep it. Project globs (`project` entries such as
   `src/*.ts`) are expanded with `fast-glob@^3.3.3` in `src/utils.ts`
@@ -101,9 +106,17 @@ pin and the root `engines` floor (`>=24.20.0`).
   `@types/fluent-ffmpeg@^2.1.28` (devDep) — its typed `on()` overloads pass
   `(stdout, stderr)` to the `end` listener, so resolve with `() => resolve()`,
   never `resolve` directly.
-- `player`: Vite web-component consumer of built packages.
+- `player`: Vite web-component consumer of built packages. Its devDep
+  `sass@^1.104.1` shares the `ui` copy, and its `vite.config.ts` silences the
+  same `legacy-js-api` deprecation via `css.preprocessorOptions.scss`.
 - `internal`: private build helpers only — includes `vite/markdown-literals`
-  plugin required by `core`/`2d` vitest configs.
+  plugin required by `core`/`2d` vitest configs. `common/marked.js` (shared by
+  the `markdown-literals` TS transformer and Vite plugin) runs
+  `marked@^18.0.13` + `highlight.js@^11.12.0`; marked is ESM-only since v16 and
+  is loaded from this CommonJS file through Node's `require(esm)` support, and
+  its renderer overrides must use the v13+ token objects (`link({href, tokens})`
+  with `this.parser.parseInline(tokens)`, `code({text, lang})`) — the old
+  argument-style signatures are never called.
 - `docs`: private, not published. Docusaurus 3.10.2 site (React 19, MDX v3,
   `plugin-svgr`); the `typedoc.js` plugin regenerates `src/generated` during
   production builds. Site components use `clsx@^2.1.1` via the default import
@@ -113,7 +126,10 @@ pin and the root `engines` floor (`>=24.20.0`).
 - `e2e` / `examples` / `template`: private, not published. The `code-block`
   example project was removed in 4.0.0; adding a new example requires both a
   `src/*.ts` project file (plus its `scenes/*` entry and `.meta`) and a line in
-  the `project` list of `packages/examples/vite.config.ts`.
+  the `project` list of `packages/examples/vite.config.ts`. Since the editor dev
+  loop aliases `@motion-canvas/ui` / `@motion-canvas/2d/editor` to source,
+  `packages/template/vite.config.ts` carries the same
+  `css.preprocessorOptions.scss.silenceDeprecations` entry as `ui` / `player`.
 
 ## Verify (mirrors `verify.yml`)
 

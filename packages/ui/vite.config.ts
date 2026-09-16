@@ -12,6 +12,13 @@ export default defineConfig({
       '@motion-canvas/2d/editor': '@motion-canvas/2d/src/editor',
     },
   },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        silenceDeprecations: ['legacy-js-api'],
+      },
+    },
+  },
   build: {
     lib: {
       entry: 'src/main.tsx',

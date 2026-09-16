@@ -5,6 +5,13 @@ import ffmpeg from '../ffmpeg/server';
 import motionCanvas from '../vite-plugin/src/main';
 
 export default defineConfig({
+  css: {
+    preprocessorOptions: {
+      scss: {
+        silenceDeprecations: ['legacy-js-api'],
+      },
+    },
+  },
   resolve: {
     alias: [
       {

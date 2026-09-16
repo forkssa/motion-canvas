@@ -32,6 +32,31 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   meta file.
 
 
+## Unreleased
+
+### Build System
+
+* upgrade `sass` from `^1.58.0` to `^1.104.1`
+
+  The player's devDependency moves to the registry `latest` (uninstall
+  first, then `npm add -D sass@latest`, then `npm dedupe`), aligning it
+  with `packages/ui` on a single hoisted copy. `sass` is the optional
+  preprocessor peer of the player's `vite@4.5.0`; 1.104.1 raises the
+  engine floor to `>=20.19.0` and brings the new
+  `chokidar@5.0.0` / `readdirp@5.1.1`, `immutable@5.1.9` and optional
+  prebuilt `@parcel/watcher@2.6.0` subtree.
+
+  Vite still calls sass through the legacy `render()` API, which has
+  emitted a `legacy-js-api` deprecation warning per compiled file since
+  sass 1.79.0; `packages/player/vite.config.ts` (like `packages/ui`)
+  now silences it with
+  `css.preprocessorOptions.scss.silenceDeprecations:
+  ['legacy-js-api']` (supported by the legacy API since sass 1.78,
+  removable once the toolchain uses the modern API). No stylesheets or
+  source files changed. Verified with `npm run player:build` (zero
+  deprecation warnings), `npm run template:build`, the e2e suite and
+  the repo-wide lint/prettier checks.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 **Note:** Version bump only for package @motion-canvas/player

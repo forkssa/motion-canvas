@@ -1922,6 +1922,157 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
   `source-map@0.6.1` copies serving the docs/webpack tree stay as they
   were.
 
+* upgrade `highlight.js`, `sass` and `marked`
+
+  Three build-time dependencies were moved to the registry `latest`,
+  following the repo's uninstall-first practice
+  (`npm uninstall` → `npm add -D` @ `latest` → `npm dedupe`; 533
+  insertions / 36 deletions in `package-lock.json`):
+
+  - `packages/internal`: devDependency `highlight.js` `^11.9.0` →
+    `^11.12.0` and devDependency `marked` `^10.0.0` → `^18.0.13`
+    (both consumed by `common/marked.js`, the renderer shared by the
+    `markdown-literals` TS transformer and Vite plugin);
+  - `packages/ui`: devDependency `highlight.js` `^11.9.0` → `^11.12.0`
+    (used by `src/utils/sourceMaps.ts` to highlight source-code frames
+    in the console) and devDependency `sass` `^1.69.5` → `^1.104.1`;
+  - `packages/player`: devDependency `sass` `^1.58.0` → `^1.104.1`.
+
+  `sass` has no other direct consumers: it is the optional preprocessor
+  peer of `vite@4.5.0` (ui/player builds) and is picked up by
+  `rollup-plugin-postcss@4.0.2` in the `2d` editor build. `highlight.js`
+  and `marked` each still resolve to a single copy for their
+  workspaces; the docs tree keeps its own `marked@16.4.2` (mermaid) and
+  typedoc keeps the hoisted `marked@4.3.0`, untouched.
+
+  Upstream changes — `highlight.js` 11.9.0 → 11.12.0
+  --------------------------------------------------
+
+  The API used here (`highlight(code, {language})`,
+  `highlightJs.getLanguage(lang)`) is unchanged. 11.10.0 (2024-07)
+  drops Node 16 (the repo runs Node 24) and brings grammar fixes for
+  TypeScript (`satisfies`), C/C++ (C23), Rust, YAML, C# and others;
+  11.11.0 is grammar-only (CSS got ~96 new MDN properties, Erlang OTP
+  27 syntax, Nix improvements); 11.12.0 (2026-08) fixes a parser
+  backreference bug, adds the FreeDesktop config grammar and includes
+  C/C++ ReDoS fixes. No source changes were required, and the
+  highlighted HTML produced for the repo's own markdown is unchanged.
+
+  Upstream changes — `marked` 10.0.0 → 18.0.13
+  --------------------------------------------
+
+  Eight majors, with the renderer API rewritten in the middle:
+
+  - 11.0.0 cleans up `Lexer.rules` (internal only);
+  - 12.0.0 updates to the CommonMark 0.31.2 spec;
+  - 13.0.0 sends **token objects** to renderer methods (`useNewRenderer`
+    opt-in), moving parsing logic from the parser into the renderer;
+  - 14.0.0 removes the old renderer signatures entirely;
+  - 15.0.0 moves HTML escaping from the tokenizers into the renderers;
+  - 16.0.0 removes the CommonJS build, making the package ESM-only and
+    raising the engine floor to Node 20;
+  - 17.0.0 only creates tokens inside tokenizers (internal);
+  - 18.0.0 trims trailing blank lines from block tokens and updates the
+    bundled types to TypeScript 6.
+
+  One source file was adapted: `packages/internal/common/marked.js`
+  still uses the old argument-style renderer overrides —
+  `link(href, title, text)` and `code(code, info)` — which stopped
+  being called in v14. The overrides now take the v13+ token objects:
+  `link({href, tokens})` renders the anchor body with
+  `this.parser.parseInline(tokens)` (the renderer instance receives its
+  parser from marked), and `code({text, lang})` consumes `text` / `lang`
+  directly. The surrounding CommonJS file is unchanged: Node 24's
+  `require(esm)` support (stable since Node 22.12) loads marked's
+  ESM-only build synchronously, which is exactly the path marked 16
+  documents as its replacement for the removed CJS bundle.
+
+  Rendering equivalence was checked mechanically: all eight `.md` log
+  files under `packages/core/src` / `packages/2d/src` plus the
+  `// language=markdown` literal in `useThread.ts` were rendered with
+  the old pair (marked 10 + highlight.js 11.9, old signatures) and the
+  new pair (marked 18 + highlight.js 11.12, new token signatures) —
+  the outputs are byte-for-byte identical. The compiled
+  `packages/core/lib/app/SharedWebGLContext.js` still contains the
+  highlighted `<pre><code class="language-ts">` fragment, confirming
+  the transformer path (`tspc`) works end to end.
+
+  Upstream changes — `sass` 1.69.5 → 1.104.1
+  ------------------------------------------
+
+  The bump spans 35 minor releases. Engine floor is now
+  `>=20.19.0`; the dependency list changes to `chokidar@^5.0.0` (+
+  `readdirp@5.1.1`), `immutable@^5.1.5` (the sass subtree replaces
+  `immutable@4.1.0` with a single `5.1.9`) and an optional
+  `@parcel/watcher@^2.4.1` (installed as the prebuilt
+  `@parcel/watcher-linux-x64-glibc@2.6.0`; the other 11 platform
+  binaries show as unmet optional dependencies in the report, as
+  expected).
+
+  Relevant deprecations since 1.69.5:
+
+  - 1.79.0 deprecates the **legacy JS API** (`render`/`renderSync`),
+    which is exactly what `vite@4.5.0` (through
+    `css.preprocessorOptions`) and `rollup-plugin-postcss@4.0.2` (the
+    `2d` editor build) still call. With sass ≥ 1.79 every compiled
+    SCSS file prints a `DEPRECATION WARNING [legacy-js-api]`; the
+    warning is noise here because the fix is a toolchain migration
+    (Vite ≥ 5.4 uses the modern API), not a change to the repo's SCSS.
+  - 1.80.0 deprecates `@import` and the global built-in functions. The
+    repo's SCSS only uses the plain-CSS `@import url(...)` form for web
+    fonts (`ui/src/index.scss`), which is not a Sass import, so nothing
+    is affected.
+  - 1.92.0 is a breaking release for emitted CSS: declarations,
+    childless at-rules and comments are now emitted in source order
+    (this obsoletes the `mixed-decls` deprecation), and `type()` became
+    fully reserved. 1.100.0 - 1.104.1 are color-space compatibility
+    fixes (`hsl()` / `color.hwb()` out-of-bounds handling, analogous
+    color preservation, extended color spaces). The repo's stylesheets
+    use none of these functions, and the built CSS still passes the
+    `ui` / `player` / `2d` builds and the e2e rendering snapshot.
+
+  To keep the build output clean, `silenceDeprecations:
+  ['legacy-js-api']` was added in the four places that invoke Dart
+  Sass — `packages/ui/vite.config.ts`,
+  `packages/player/vite.config.ts` and
+  `packages/template/vite.config.ts` under
+  `css.preprocessorOptions.scss`, and `packages/2d/rollup.editor.mjs`
+  through `rollup-plugin-postcss`'s `use.sass` option. The legacy API
+  has supported `silenceDeprecations` since 1.78 (backported in the
+  1.78 release), so the option is honored on the installed 1.104.1;
+  remove it once the toolchain drives the modern API. Verified:
+  `npm run ui:build`, `npm run player:build` and `npm run 2d:build`
+  each go from dozens of warnings to zero `DEPRECATION WARNING` lines
+  with unchanged output, and a `template:dev` compile of the editor
+  graph (the template aliases `@motion-canvas/ui` to source) goes from
+  21 warnings to 0.
+
+  Note on install scripts: the new optional `@parcel/watcher`
+  dependency ships a `node-gyp` fallback script that npm 11's
+  `allowScripts` gate leaves unapproved. This is intentional — the
+  prebuilt platform package is installed and
+  `require('@parcel/watcher')` loads it, so the source build is never
+  needed (npm still prints an `install-scripts` notice on install).
+
+  Verification
+  ------------
+
+  `npx lerna run build` (6 projects) passes with no sass warnings;
+  `npm run ui:build`, `npm run player:build` and `npm run 2d:build`
+  pass; `npm run template:build` and `npm run examples:build` pass;
+  `timeout 60s npm run core:test` (20 files / 216 tests) and
+  `timeout 60s npm run 2d:test` (10 files / 54 tests) pass;
+  `npm run e2e:test -- run` passes; `timeout 60s npm run ui:type`
+  reports `Found 0 errors` (watch mode killed by the timeout, as
+  documented); `npx eslint "**/*.ts?(x)"` is clean and
+  `npm run prettier` / `npm run prettier:fix` reflow nothing. The
+  `workspace/motion-canvas/dependency-tree.md` report was regenerated
+  from `workspace/` (`npm run motion-canvas-dependency-tree`):
+  `highlight.js@11.12.0`, `marked@18.0.13` and `sass@1.104.1` are
+  auto-marked at latest in both the shallow and full sections, and the
+  full tree now shows the new `sass` subtree (chokidar 5.0.0,
+  readdirp 5.1.1, immutable 5.1.9 and optional @parcel/watcher 2.6.0).
+
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
