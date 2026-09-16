@@ -3,7 +3,10 @@
 Monorepo: npm workspaces (`packages/*`) + Lerna. Run all commands from this dir
 (the monorepo root). CI uses Node 24.20.0 (`verify.yml`); `HUSKY: 0` in CI.
 Note: `@commitlint/cli@21` and `lerna@10` require Node ≥22 — covered by the CI
-pin and the root `engines` floor (`>=24.20.0`). Build/test toolchain: the root
+pin and the root `engines` floor (`>=24.20.0`). The root `package.json` is the
+only manifest declaring `engines` (the stale `>=20` floor was removed from
+`packages/docs`), and root `overrides` pin `@types/node` to `^24.1.0` so the
+whole tree resolves a single Node 24 types copy. Build/test toolchain: the root
 `vite@^8.3.0` (Rolldown + Oxc, ESM-only, Lightning CSS minifier) drives every
 Vite workspace (`ui`, `player`, `examples`, `template`, `e2e`); unit tests run
 on `vitest@^5.0.1` (`core`, `2d`, `e2e`), whose `vite` peer is
@@ -142,7 +145,10 @@ its `@rollup/plugin-*` packages were removed.
   signature returns `RawSourceMap`). `follow-redirects` is `^1.16.0` with
   `@types/follow-redirects@^1.14.4`; npm 11.19.0's workspace uninstall of that
   `@types` package also drops the runtime `follow-redirects` dep from the
-  manifest, so re-add it after uninstalling the types.
+  manifest, so re-add it after uninstalling the types. `@types/node` is
+  `^24.1.0` (devDep); Node 24's stream typings give `finish` a `() => void`
+  listener, so `writeBase64` in `src/partials/exporter.ts` uses
+  `new Promise<void>` and `.on('finish', () => resolve())`.
 - `ffmpeg`: dual `client/tsconfig.json` + `server/tsconfig.json` builds; license
   GPLv3 (others MIT). The server tsconfig uses `module`/`moduleResolution`
   `node16` (CommonJS emit preserved) and `server/FFmpegBridge.ts` imports

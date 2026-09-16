@@ -24,7 +24,7 @@
   "devDependencies": {
     "@types/follow-redirects": "^1.14.4",
     "@types/mime-types": "^3.0.1",
-    "@types/node": "^18.14.0"
+    "@types/node": "^24.1.0"
   },
   "dependencies": {
     "fast-glob": "^3.3.3",

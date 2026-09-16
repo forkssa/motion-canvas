@@ -260,6 +260,23 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   transforms both virtual editor modules with absolute project ids;
   `npx eslint "**/*.ts?(x)"` and `npm run prettier` (clean).
 
+* bump `@types/node` from `^18.14.0` to `^24.1.0`
+
+  Aligns the package with the project's Node 24 floor; root `overrides`
+  now force a single hoisted `@types/node@24.13.5` across the whole
+  workspace, which also satisfies the `vite`/`vitest` peer ranges.
+  `@types/node@24` types the stream `finish` event as `() => void`, so
+  `writeBase64` in `src/partials/exporter.ts` returns
+  `new Promise<void>` and registers `.on('finish', () => resolve())`
+  instead of passing `resolve` directly (passing it now fails with
+  TS2345, and calling `resolve()` on an untyped `Promise<unknown>` fails
+  with TS2794).
+
+  Verified: `npm run vite-plugin:build` (`tsc`), `npx lerna run build`
+  (6 projects), `timeout 60s npm run core:test` / `2d:test`,
+  `npm run e2e:test -- run`, `npx eslint "**/*.{ts,tsx,mts}"` and
+  `npm run prettier` (clean).
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 

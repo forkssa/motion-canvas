@@ -2561,6 +2561,38 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
   `preinstall` rewrites the consuming project's `package.json`. The
   in-repo plugin avoids that dependency entirely.
 
+* standardize on Node 24 types and a single `engines` declaration
+
+  - package.json: root `overrides` gains `"@types/node": "^24.1.0"`
+    (alongside the existing React `@types` pins). Two transitive type-only
+    deps demanded older majors (`http-response-object` ->
+    `@types/node@^10.0.3`, `sitemap` -> `@types/node@^17.0.5`); the
+    override collapses the tree to one hoisted `@types/node@24.13.5`
+    (was `22.20.3`). `@types/node@24` satisfies `vite`'s
+    `^20.19.0 || >=22.12.0` and `vitest`'s `^22.0.0 || >=24.0.0` peers and
+    ships `typesVersions` shims down to TS 5.1, so the root TypeScript
+    5.4.2 build is unaffected.
+  - packages/docs: the stale Docusaurus-scaffold `engines: {node: ">=20"}`
+    is removed; the root `package.json` (`>=24.20.0`) is now the single
+    manifest declaring an engine floor. Adding it to every workspace was
+    not necessary — npm validates the root on install from the monorepo
+    root and the workspace packages are private or published libraries
+    whose consumers should not be forced onto Node 24.
+  - packages/vite-plugin: devDep `@types/node` `^18.14.0` -> `^24.1.0`,
+    and `src/partials/exporter.ts` adapts to Node 24's stream typings
+    (`finish` is now typed `() => void`): `writeBase64` returns
+    `new Promise<void>` and registers `.on('finish', () => resolve())`
+    instead of passing `resolve` directly (otherwise TS2345/TS2794).
+
+  Verified: `npx lerna run build` (6 projects, after the exporter fix),
+  `timeout 60s npm run core:test` (20 files / 216 tests),
+  `timeout 60s npm run 2d:test` (10 files / 54 tests),
+  `npm run e2e:test -- run`, `npm run ui:type` (`Found 0 errors`),
+  `npm run typecheck -w packages/docs`, `npx eslint "**/*.{ts,tsx,mts}"`
+  and `npm run prettier` all pass; `npm ls @types/node --all` reports a
+  single `24.13.5`; the lock is stable across `npm install` / `npm dedupe`
+  and `npm install-scripts ls` is clean.
+
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
