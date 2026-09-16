@@ -79,7 +79,10 @@ pin and the root `engines` floor (`>=24.20.0`).
   (default import; a single workspace-hoisted copy shared with `2d`/`docs` —
   `2d` uses the named `{clsx}` import, also valid in 2.x).
 - `vite-plugin`: plain `tsc` build, peer `vite 4.x || 5.x`. Its `skipLibCheck`
-  is not accidental — keep it.
+  is not accidental — keep it. Project globs (`project` entries such as
+  `src/*.ts`) are expanded with `fast-glob@^3.3.3` in `src/utils.ts`
+  (`fg.isDynamicPattern()` + `fg.sync(..., {onlyFiles: true})`); that range also
+  keeps the hoisted `micromatch` on the patched 4.0.8 line.
 - `ffmpeg`: dual `client/tsconfig.json` + `server/tsconfig.json` builds; license
   GPLv3 (others MIT).
 - `player`: Vite web-component consumer of built packages.

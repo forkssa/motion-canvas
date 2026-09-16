@@ -1702,6 +1702,51 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
     lint-staged@17.5.1 is auto-marked at latest and the `debug`
     unification to 4.4.3 is visible throughout the full tree.
 
+* upgrade `fast-glob` from 3.3.1 to 3.3.3
+
+  `fast-glob` expands the project globs configured in the Vite plugin
+  — `packages/vite-plugin/src/utils.ts` uses `fg.isDynamicPattern()`
+  plus `fg.sync(path, {onlyFiles: true})` to turn `project` entries
+  such as `src/*.ts` into concrete scene file paths. The direct
+  dependency in `packages/vite-plugin/package.json` moves from
+  `^3.3.1` to `^3.3.3` (current registry `latest`) following the
+  uninstall-first practice:
+  `npm uninstall fast-glob -w packages/vite-plugin`,
+  `npm add fast-glob@latest -w packages/vite-plugin`, `npm dedupe`.
+  No other manifest changed.
+
+  Upstream changes
+  ----------------
+
+  - 3.3.2 fixes escaping of square brackets as special characters on
+    Windows and keeps escaping active after brace expansion.
+  - 3.3.3 raises the `micromatch` floor to `^4.0.8` — the ReDoS fix
+    that also silences `npm audit` noise — and applies absolute
+    negative patterns to the full path instead of the file path.
+  - 3.3.0 (already inside the previous `^3.3.1` range) added the
+    `glob` / `globSync` / `globStream` / `async` method aliases and
+    `convertPathToPattern`, and made negative patterns honor the
+    `dot` option.
+
+  All consumers dedupe onto one copy: the direct vite-plugin import
+  plus Docusaurus' transitive users (`copy-webpack-plugin@11`,
+  `globby@11` and `globby@13`). The raised `micromatch` range also
+  promotes the hoisted `micromatch` from 4.0.7 to 4.0.8 across the
+  whole tree (five occurrences in the report). The API surface this
+  repo relies on is unchanged and no source files were touched.
+
+  Verification: `npx lerna run build` (6 projects, including the
+  vite-plugin `tsc` build) passes; `npm run examples:build` — the
+  real consumer of the glob expansion — passes;
+  `timeout 60s npm run core:test` (20 files / 216 tests) and
+  `timeout 60s npm run 2d:test` (10 files / 54 tests) pass;
+  `npm run e2e:test -- run` passes; `npm run typecheck -w
+  packages/docs` passes (the docs' Docusaurus tree now shares the new
+  copy); `npx eslint "**/*.ts?(x)"` and `npm run prettier:fix` (no
+  reflows) are clean. The `workspace/motion-canvas/dependency-tree.md`
+  report was regenerated (fast-glob@3.3.3 auto-marked at latest;
+  micromatch 4.0.8 visible throughout).
+
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 

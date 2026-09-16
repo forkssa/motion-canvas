@@ -122,6 +122,25 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 * remove legacy package
 
 
+## Unreleased
+
+### Build System
+
+* upgrade `fast-glob` from `^3.3.1` to `^3.3.3`
+
+  The project-glob expander behind `src/utils.ts`
+  (`fg.isDynamicPattern()` and `fg.sync(path, {onlyFiles: true})`)
+  moves to the registry `latest`, so this package, Docusaurus'
+  `copy-webpack-plugin` / `globby` chain and the rest of the tree
+  share a single hoisted copy. 3.3.2 fixes square-bracket escaping on
+  Windows and escaping after brace expansion; 3.3.3 raises the
+  `micromatch` floor to `^4.0.8` (which promotes the repo's hoisted
+  `micromatch` from 4.0.7 to 4.0.8 — the ReDoS fix) and applies
+  absolute negative patterns to the full path. The API used here is
+  unchanged. Verified with the `tsc` build, `npm run examples:build`
+  (the real glob consumer), the unit suites and the e2e rendering
+  test.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 
