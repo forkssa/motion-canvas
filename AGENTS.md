@@ -75,7 +75,9 @@ pin and the root `engines` floor (`>=24.20.0`).
   into `dist` (externals stay `@motion-canvas/core` and preact). Since
   `@types/chroma-js` 3.x only types the default export, always use
   `import chroma from 'chroma-js'` (`chroma.hsv(...)`, `chroma.valid(...)`) —
-  named value imports no longer type-check.
+  named value imports no longer type-check. Class names come from `clsx@^2.1.1`
+  (default import; a single workspace-hoisted copy shared with `2d`/`docs` —
+  `2d` uses the named `{clsx}` import, also valid in 2.x).
 - `vite-plugin`: plain `tsc` build, peer `vite 4.x || 5.x`. Its `skipLibCheck`
   is not accidental — keep it.
 - `ffmpeg`: dual `client/tsconfig.json` + `server/tsconfig.json` builds; license
@@ -85,9 +87,10 @@ pin and the root `engines` floor (`>=24.20.0`).
   plugin required by `core`/`2d` vitest configs.
 - `docs`: private, not published. Docusaurus 3.10.2 site (React 19, MDX v3,
   `plugin-svgr`); the `typedoc.js` plugin regenerates `src/generated` during
-  production builds. The deprecated-`CodeBlock` doc page
-  (`docs/components/code-block.mdx`) and the 2.4.0/2.6.0 blog posts (which
-  linked it) were removed in 4.0.0.
+  production builds. Site components use `clsx@^2.1.1` via the default import
+  (the site was the last `^1.2.0` consumer before the repo-wide 2.x dedupe). The
+  deprecated-`CodeBlock` doc page (`docs/components/code-block.mdx`) and the
+  2.4.0/2.6.0 blog posts (which linked it) were removed in 4.0.0.
 - `e2e` / `examples` / `template`: private, not published. The `code-block`
   example project was removed in 4.0.0; adding a new example requires both a
   `src/*.ts` project file (plus its `scenes/*` entry and `.meta`) and a line in

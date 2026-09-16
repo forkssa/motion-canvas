@@ -1510,6 +1510,72 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
   report was regenerated (chroma-js 3.2.0 and @types/chroma-js 3.1.2,
   auto-marked at latest).
 
+* upgrade `clsx` from 1.2.1/2.0.0 to 2.1.1 across `2d`, `ui` and `docs`
+
+  `clsx` is the tiny class-name concatenation helper used throughout
+  the editor and the site: 33 files in `packages/ui` (default import —
+  `Button`, `Tabs`, `Timeline`, `Console`, `StageView`, …), the `2d`
+  editor tree (`TreeElement.tsx` and `TreeRoot.tsx`, named import) and
+  16 files under `packages/docs/src` (default import).
+
+  All three manifests move to the current registry `latest` release:
+
+  - packages/2d/package.json: devDependency `^2.0.0` -> `^2.1.1`
+  - packages/ui/package.json: devDependency `^2.0.0` -> `^2.1.1`
+  - packages/docs/package.json: dependency `^1.2.0` -> `^2.1.1`
+
+  Following the repo's uninstall-first practice:
+  `npm uninstall clsx -w packages/2d -w packages/ui -w packages/docs`,
+  then `npm add -D clsx@latest -w packages/2d -w packages/ui` and
+  `npm add clsx@latest -w packages/docs`, then `npm dedupe`.
+
+  clsx has no runtime dependencies, so the install collapses to a
+  single hoisted `clsx@2.1.1`: the nested 2.1.1 copies under
+  `@motion-canvas/2d`, `@motion-canvas/ui`,
+  `@docusaurus/theme-classic`, `@docusaurus/theme-common`,
+  `@docusaurus/theme-search-algolia` and `prism-react-renderer`, plus
+  the root-level 1.2.1 copy that satisfied the `docs` range, are all
+  gone (lockfile: 12 insertions / 106 deletions; `npm ls clsx` now
+  reports every consumer as `deduped` against one 2.1.1 copy).
+
+  Upstream 2.x changes
+  --------------------
+
+  - 2.0.0 (breaking) adds an `"exports"` map for native ESM support
+    and TypeScript's `node16`/`nodenext` module resolution, while
+    keeping CommonJS output with corrected typings. Both the default
+    and the named `clsx` imports stay supported — v1.2.0 introduced
+    the named alias precisely so consumers can avoid
+    `esModuleInterop`.
+  - 2.0.1 caches `arguments.length` / `array.length` (perf only).
+  - 2.1.0 adds the strings-only `clsx/lite` submodule (not used here).
+  - 2.1.1 adds `bigint` to the `ClassValue` type, following the
+    `ReactNode` changes in React 19's types (additive; no call site in
+    this repo names `ClassValue`).
+
+  The practical consequence is confined to `docs`, which crosses the
+  major version (declared `^1.2.0`, previously resolving to 1.2.1):
+  its default imports keep working through the new ESM typings
+  (`clsx.d.mts`) under the docs' bundler-style module resolution, and
+  webpack resolves the `"exports"` map to `dist/clsx.mjs`. `2d` and
+  `ui` were already resolving 2.1.1 through their `^2.0.0` ranges —
+  the manifest bump only aligns the declared range with the installed
+  version. Their node10-style resolution reads the CJS typings
+  (`clsx.d.ts`, `export =`), so `ui`'s default import relies on its
+  `allowSyntheticDefaultImports: true`, while `2d` uses the named
+  import. No source files changed.
+
+  Verification: `npx lerna run build` (6 projects: `core`, `2d`, `ui`,
+  `vite-plugin`, `ffmpeg`, `player`) passes;
+  `timeout 60s npm run core:test` — 20 files / 216 tests pass;
+  `timeout 60s npm run 2d:test` — 10 files / 54 tests pass;
+  `npm run e2e:test -- run` passes; `npm run typecheck -w
+  packages/docs` passes; `npm run examples:build` passes;
+  `npx eslint "**/*.ts?(x)"` is clean and `npm run prettier:fix`
+  reflows nothing. The `workspace/motion-canvas/dependency-tree.md`
+  report was regenerated (single deduped `clsx@2.1.1` everywhere,
+  auto-marked at latest).
+
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 

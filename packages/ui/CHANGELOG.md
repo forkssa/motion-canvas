@@ -202,6 +202,21 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   `npx eslint "**/*.ts?(x)"` is clean and `npm run prettier:fix`
   reflows nothing.
 
+* upgrade `clsx` from `^2.0.0` to `^2.1.1`
+
+  The editor shell's class-name helper (`import clsx from 'clsx'` in
+  33 components, e.g. `Button`, `Tabs`, `Timeline`, `Console`,
+  `StageView`). `^2.0.0` already resolved to 2.1.1, so the manifest
+  bump only aligns the declared range with the installed version and
+  moves it to the registry `latest`; `npm dedupe` removed the nested
+  copy in favor of the single hoisted 2.1.1 shared with `2d` and
+  `docs`. Upstream 2.1.1 only widens the `ClassValue` type with
+  `bigint`, so no source changes were needed. The default import keeps
+  working under the package's `moduleResolution: node` typings because
+  `allowSyntheticDefaultImports` is enabled (the `2d` package uses the
+  named import instead). Verified with the UI build
+  (`tsc && vite build`), the repo-wide lint and prettier checks.
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 

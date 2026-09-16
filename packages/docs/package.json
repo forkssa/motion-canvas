@@ -34,7 +34,7 @@
     "@mdx-js/react": "^3.0.1",
     "@motion-canvas/examples": "*",
     "@motion-canvas/player": "*",
-    "clsx": "^1.2.0",
+    "clsx": "^2.1.1",
     "codemirror": "^6.0.2",
     "prism-react-renderer": "^2.4.1",
     "raw-loader": "^4.0.2",

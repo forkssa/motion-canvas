@@ -335,6 +335,19 @@ saved with older versions still deserialize correctly.
   single top-level copy shared with the docs workspace. Lib
   typecheck, unit suite, and lint all pass unchanged.
 
+* upgrade `clsx` from `^2.0.0` to `^2.1.1`
+
+  Class-name helper used by the editor tree
+  (`src/editor/tree/TreeElement.tsx` and `TreeRoot.tsx`, both with the
+  named `clsx` import). `^2.0.0` already resolved to 2.1.1, so the
+  manifest bump only aligns the declared range with the installed
+  version and moves it to the registry `latest`; `npm dedupe` then
+  collapsed the previously nested copy into the single hoisted 2.1.1
+  copy shared with `ui` and `docs`. Upstream 2.1.1 only adds `bigint`
+  to the `ClassValue` type, so no source changes were needed.
+  Verified with the lib `tspc` build, the editor rollup bundle and the
+  unit suite (10 files / 54 tests).
+
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
 **Note:** Version bump only for package @motion-canvas/2d
