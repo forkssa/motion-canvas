@@ -84,7 +84,10 @@ pin and the root `engines` floor (`>=24.20.0`).
   (`fg.isDynamicPattern()` + `fg.sync(..., {onlyFiles: true})`); that range also
   keeps the hoisted `micromatch` on the patched 4.0.8 line.
 - `ffmpeg`: dual `client/tsconfig.json` + `server/tsconfig.json` builds; license
-  GPLv3 (others MIT).
+  GPLv3 (others MIT). The server's ffmpeg API types come from
+  `@types/fluent-ffmpeg@^2.1.28` (devDep) — its typed `on()` overloads pass
+  `(stdout, stderr)` to the `end` listener, so resolve with `() => resolve()`,
+  never `resolve` directly.
 - `player`: Vite web-component consumer of built packages.
 - `internal`: private build helpers only — includes `vite/markdown-literals`
   plugin required by `core`/`2d` vitest configs.

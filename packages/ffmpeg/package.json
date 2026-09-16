@@ -22,7 +22,7 @@
     "lib"
   ],
   "devDependencies": {
-    "@types/fluent-ffmpeg": "^2.1.21"
+    "@types/fluent-ffmpeg": "^2.1.28"
   },
   "dependencies": {
     "@motion-canvas/core": "4.0.0",

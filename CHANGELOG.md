@@ -1747,6 +1747,52 @@ Additionally, all publishable packages (`@motion-canvas/2d`, `core`, `create`,
   report was regenerated (fast-glob@3.3.3 auto-marked at latest;
   micromatch 4.0.8 visible throughout).
 
+* upgrade `@types/fluent-ffmpeg` from 2.1.24 to 2.1.28
+
+  `@types/fluent-ffmpeg` provides the typings for the FFmpeg exporter
+  server: `packages/ffmpeg/server/FFmpegExporterServer.ts` imports the
+  `ffmpeg` default export plus the `AudioVideoFilter` and
+  `FilterSpecification` types used to build the complex filter graph.
+  The devDependency in `packages/ffmpeg/package.json` moves from
+  `^2.1.21` to `^2.1.28` (current registry `latest`) following the
+  uninstall-first practice:
+  `npm uninstall @types/fluent-ffmpeg -w packages/ffmpeg`,
+  `npm add -D @types/fluent-ffmpeg@latest -w packages/ffmpeg`,
+  `npm dedupe` (9 insertions / 8 deletions in the lockfile). The
+  runtime `fluent-ffmpeg@^2.1.3` is already the newest release and was
+  not touched.
+
+  Upstream changes (2.1.25 - 2.1.28)
+  ----------------------------------
+
+  - 2.1.25 (DT #70019) adds precise `on()` overloads for the emitter
+    events (`start`, `progress`, `stderr`, `codecData`, `error`,
+    `filenames`, `end`) instead of relying on EventEmitter's untyped
+    `(...args: any[])` listener.
+  - 2.1.26 (DT #70199) adds the `filenames` event typings.
+  - 2.1.27 (DT #70895) corrects the `codecData` type and JSDoc.
+  - 2.1.28 (DT #73954) switches the internal `events` / `stream`
+    imports to `import x = require(...)` so the package also works
+    with `esModuleInterop`, which becomes the default in TypeScript
+    6.0.
+
+  One source change was required: `FFmpegExporterServer` resolved its
+  completion promise with `this.command.on('end', resolve)`, which
+  the new overloads reject because the `end` listener receives
+  `(stdout: string | null, stderr: string | null)` while `resolve`
+  only accepts `void | PromiseLike<void>`. It is now written as
+  `this.command.on('end', () => resolve())`. This is a type-level fix
+  only — the callback arguments were never used.
+
+  Verification: `npm run build -w packages/ffmpeg` (client + server
+  `tsc` builds) passes; `npx lerna run build` (6 projects),
+  `timeout 60s npm run core:test` (20 files / 216 tests),
+  `timeout 60s npm run 2d:test` (10 files / 54 tests),
+  `npm run e2e:test -- run`, `npx eslint "**/*.ts?(x)"` and
+  `npm run prettier:fix` (no reflows) are all clean. The
+  `workspace/motion-canvas/dependency-tree.md` report was regenerated
+  (@types/fluent-ffmpeg@2.1.28 auto-marked at latest).
+
 
 ## [3.17.2](https://github.com/motion-canvas/motion-canvas/compare/v3.17.1...v3.17.2) (2024-12-14)
 
